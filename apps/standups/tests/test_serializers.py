@@ -171,3 +171,26 @@ class StandupSerializerTests(TestCase):
 
         self.assertEqual(len(data["items"]), 2)
         self.assertEqual(data["user"]["email"], "jane@example.com")
+
+    def test_partial_update_without_items_does_not_require_sections(self):
+        standup = Standup.objects.create(user=self.user, standup_date=datetime.date(2026, 7, 13))
+        StandupItem.objects.create(
+            standup=standup, section=StandupItem.Section.COMPLETED, content="Done.", position=1
+        )
+
+        serializer = StandupSerializer(standup, data={"blockers": "New blocker."}, partial=True)
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertNotIn("items", serializer.validated_data)
+
+    def test_partial_update_with_items_still_requires_sections(self):
+        standup = Standup.objects.create(user=self.user, standup_date=datetime.date(2026, 7, 13))
+
+        serializer = StandupSerializer(
+            standup,
+            data={"items": [{"section": "COMPLETED", "content": "Done.", "position": 1}]},
+            partial=True,
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("items", serializer.errors)

@@ -222,3 +222,13 @@ class UpdateStandupServiceTests(TestCase):
         standup.refresh_from_db()
         self.assertEqual(standup.blockers, "Original blocker.")
         self.assertEqual(set(standup.items.values_list("id", flat=True)), original_item_ids)
+
+    def test_items_are_left_untouched_when_absent_from_validated_data(self):
+        standup = self._create(blockers="Original blocker.")
+        original_item_ids = set(standup.items.values_list("id", flat=True))
+
+        updated = update_standup(standup=standup, validated_data={"blockers": "New blocker."})
+
+        updated.refresh_from_db()
+        self.assertEqual(updated.blockers, "New blocker.")
+        self.assertEqual(set(updated.items.values_list("id", flat=True)), original_item_ids)

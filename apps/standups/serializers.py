@@ -55,6 +55,13 @@ class StandupSerializer(serializers.ModelSerializer):
         return items
 
     def validate(self, attrs):
+        # Under partial=True, an absent "items" key means "leave items
+        # alone" (e.g. a PATCH that only touches blockers) — not "replace
+        # with zero items" — so the required-sections check only applies
+        # when items are actually part of this update.
+        if self.partial and "items" not in attrs:
+            return attrs
+
         items = attrs.get("items", [])
         sections_present = {item["section"] for item in items}
         missing = [section for section in REQUIRED_SECTIONS if section not in sections_present]
