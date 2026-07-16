@@ -109,11 +109,12 @@ class AOBItemListCreateView(generics.GenericAPIView):
         return list_aob_items()
 
     def get(self, request, *args, **kwargs):
-        # created_by is a forward, to-one FK (unlike standups' items),
-        # so none of these filters/search fields can actually multiply
-        # rows — distinct() is kept anyway for consistency and in case a
-        # to-many field is ever added to search_fields later.
-        queryset = self.filter_queryset(self.get_queryset()).distinct()
+        # created_by is a forward, to-one FK — unlike standups' items,
+        # none of these filters/search fields can join to a to-many
+        # relation, so rows can't be multiplied and distinct() would only
+        # add an unnecessary sort/uniqueness step. Revisit if a to-many
+        # field is ever added to search_fields.
+        queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)
@@ -180,7 +181,12 @@ class AOBItemDetailView(generics.GenericAPIView):
     # allows safe methods for anyone and restricts unsafe methods to the
     # creator — matching the same reuse already established for standups.
     permission_classes = [IsAuthenticated, IsAOBItemCreator]
-    queryset = AOBItem.objects.all()
+    # select_related("created_by") backs self.get_object() for PATCH/
+    # DELETE (GET bypasses it via get_aob_item_by_id()'s own
+    # select_related) — avoids a second query when the permission check
+    # or response serialization reads created_by. Safe since created_by
+    # is never reassigned by update_aob_item().
+    queryset = AOBItem.objects.select_related("created_by")
     serializer_class = AOBItemSerializer
 
     def get(self, request, *args, **kwargs):

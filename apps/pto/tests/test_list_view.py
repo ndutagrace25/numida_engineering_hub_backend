@@ -136,3 +136,23 @@ class PTOEntryListViewTests(BaseAPITestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.get_error(response)["code"], "NOT_AUTHENTICATED")
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        # Paginator count + select_related(user, created_by) main query.
+        # setUp() already created 2 entries.
+        with self.assertNumQueries(2):
+            self.client.get(self.url)
+
+        for offset in range(5):
+            create_pto_entry(
+                created_by=self.creator,
+                validated_data={
+                    "user": self.grace,
+                    "start_date": datetime.date(2026, 9, 1) + datetime.timedelta(days=offset * 10),
+                    "end_date": datetime.date(2026, 9, 3) + datetime.timedelta(days=offset * 10),
+                    "reason": "",
+                },
+            )
+
+        with self.assertNumQueries(2):
+            self.client.get(self.url)

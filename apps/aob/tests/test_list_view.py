@@ -149,3 +149,24 @@ class AOBItemListViewTests(BaseAPITestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.get_error(response)["code"], "NOT_AUTHENTICATED")
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        # Paginator count + select_related(created_by) main query. setUp()
+        # already created 2 items.
+        with self.assertNumQueries(2):
+            self.client.get(self.url)
+
+        for i in range(5):
+            create_aob_item(
+                user=self.grace,
+                validated_data={
+                    "title": f"Extra item {i}",
+                    "description": "",
+                    "external_url": "",
+                    "week_start": MONDAY,
+                    "position": i + 2,
+                },
+            )
+
+        with self.assertNumQueries(2):
+            self.client.get(self.url)

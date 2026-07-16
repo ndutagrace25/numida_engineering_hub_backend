@@ -120,9 +120,10 @@ class PTOEntryListCreateView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         # user/created_by are forward to-one FKs, so none of these
-        # filters/search fields can multiply rows — distinct() is kept
-        # anyway for consistency with the other list endpoints.
-        queryset = self.filter_queryset(self.get_queryset()).distinct()
+        # filters/search fields can join to a to-many relation — rows
+        # can't be multiplied, so distinct() would only add an
+        # unnecessary sort/uniqueness step.
+        queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)
@@ -190,7 +191,15 @@ class PTOEntryDetailView(generics.GenericAPIView):
     # creator — matching the same reuse already established for standups
     # and AOB items.
     permission_classes = [IsAuthenticated, IsPTOEntryCreator]
-    queryset = PTOEntry.objects.all()
+    # select_related("user", "created_by") backs self.get_object() for
+    # PATCH/DELETE (GET bypasses it via get_pto_entry_by_id()'s own
+    # select_related) — avoids extra queries when the permission check or
+    # response serialization reads either FK. Safe even though
+    # update_pto_entry() can reassign "user": DRF's PrimaryKeyRelatedField
+    # resolves it to a full User instance, and a direct attribute
+    # assignment correctly replaces the cached object rather than leaving
+    # a stale one.
+    queryset = PTOEntry.objects.select_related("user", "created_by")
     serializer_class = PTOEntrySerializer
 
     def get(self, request, *args, **kwargs):

@@ -195,3 +195,60 @@ class DashboardViewTests(BaseAPITestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.get_error(response)["code"], "NOT_AUTHENTICATED")
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        self._create_standup(self.grace, WEEK_START)
+        create_aob_item(
+            user=self.grace,
+            validated_data={
+                "title": "Item",
+                "description": "",
+                "external_url": "",
+                "week_start": WEEK_START,
+                "position": 1,
+            },
+        )
+        create_pull_request_link(
+            created_by=self.grace,
+            validated_data={
+                "title": "PR",
+                "url": "https://github.com/org/repo/pull/1",
+                "group_name": "App PRs",
+                "status": PullRequestLink.Status.OPEN,
+                "week_start": WEEK_START,
+                "position": 1,
+            },
+        )
+        create_pto_entry(
+            created_by=self.grace,
+            validated_data={
+                "user": self.grace,
+                "start_date": WEEK_START,
+                "end_date": WEEK_START,
+                "reason": "",
+                "handover_url": "",
+            },
+        )
+        UserPresence.objects.create(user=self.grace, last_seen_at=timezone.now())
+
+        with self.assertNumQueries(10):
+            self._get(WEEK_START.isoformat())
+
+        extra_users = [
+            User.objects.create_user(email=f"extra{i}@example.com", password="pw") for i in range(5)
+        ]
+        for offset, user in enumerate(extra_users):
+            self._create_standup(user, WEEK_START + datetime.timedelta(days=offset % 7))
+            create_aob_item(
+                user=user,
+                validated_data={
+                    "title": f"Item {offset}",
+                    "description": "",
+                    "external_url": "",
+                    "week_start": WEEK_START,
+                    "position": offset + 2,
+                },
+            )
+
+        with self.assertNumQueries(10):
+            self._get(WEEK_START.isoformat())

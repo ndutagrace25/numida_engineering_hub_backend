@@ -112,6 +112,47 @@ types leave it empty. The handler is registered via `EXCEPTION_HANDLER` in
 (`?page=2&page_size=50`). Paginated responses reuse the same envelope, with
 `data` holding `count`/`next`/`previous`/`results`.
 
+## Performance
+
+Every selector backing a list or detail endpoint uses `select_related()` for
+forward FK/one-to-one relationships and `prefetch_related()` for reverse/
+nested relationships, so no list endpoint executes one query per result.
+Query-count tests (`assertNumQueries`, run at two different data volumes to
+prove the count doesn't grow) exist at the selector level for every app and
+at the endpoint level for the standup list, weekly standups, presence list,
+AOB list, PTO list, pull-request-link list, and dashboard endpoints.
+
+**Indexes.** Every field the codebase commonly filters or orders by is
+indexed: `Standup.standup_date`, `StandupItem(standup, section, position)`
+(covers ordering and the `section` filter), `UserPresence.last_seen_at`,
+`AOBItem(-week_start, position)`, `PTOEntry.start_date` and `.end_date`,
+`PullRequestLink(-week_start, group_name, position)` and `.status`. Every
+`user`/`created_by` ForeignKey already gets an index automatically from
+Django's `db_index=True` default — no app declares a redundant duplicate of
+one. This audit added no new indexes; everything the task asked to review
+was already covered, so no migration was needed
+(`manage.py makemigrations --check` reports no changes).
+
+**Optimizations applied in this review:**
+
+- The four detail views' (Standup/AOB/PTO/PullRequestLink) `queryset` class
+  attribute — the plain, un-optimized queryset `self.get_object()` uses for
+  PATCH/DELETE — now uses `select_related()` for their FK(s). This removes
+  one avoidable query per PATCH/DELETE request (previously triggered when
+  the owner/creator permission check or response serialization read the FK).
+  GET was already optimal via each app's dedicated selector.
+- Removed `.distinct()` from the AOB, PTO, and pull-request-link list views.
+  Their filters and `search_fields` only ever join to forward to-one FKs
+  (`created_by`/`user`), which can never multiply rows, so `distinct()` was
+  pure overhead. `.distinct()` is kept on the standup list, since its
+  `section` filter and `items__content` search field join to the reverse
+  `items` relation, which genuinely can produce duplicate rows.
+
+**Deferred, and why:** `.only()`/`.defer()` were considered but every field
+currently returned by a list serializer is actually used by that serializer
+— there's no heavy/unused column to trim. Redis, caching, Celery, background
+jobs, and query result caching were explicitly out of scope for this pass.
+
 ## API versioning
 
 All future endpoints live under `/api/v1/`, aggregated in `config/api_v1_urls.py`

@@ -154,3 +154,25 @@ class PullRequestLinkListViewTests(BaseAPITestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.get_error(response)["code"], "NOT_AUTHENTICATED")
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        # Paginator count + select_related(created_by) main query. setUp()
+        # already created 2 links.
+        with self.assertNumQueries(2):
+            self.client.get(self.url)
+
+        for i in range(5):
+            create_pull_request_link(
+                created_by=self.grace,
+                validated_data={
+                    "title": f"Extra PR {i}",
+                    "url": f"https://github.com/org/repo/pull/{7000 + i}",
+                    "group_name": "App 3.0 PRs",
+                    "status": PullRequestLink.Status.OPEN,
+                    "week_start": MONDAY,
+                    "position": i + 2,
+                },
+            )
+
+        with self.assertNumQueries(2):
+            self.client.get(self.url)

@@ -321,7 +321,16 @@ class StandupDetailView(generics.GenericAPIView):
     # "anyone can view, only the owner can update/delete", with no extra
     # method-specific branching needed here.
     permission_classes = [IsAuthenticated, IsStandupOwner]
-    queryset = Standup.objects.all()
+    # select_related("user") only — never prefetch_related("items") here.
+    # This queryset backs self.get_object() for PATCH/DELETE; GET bypasses
+    # it via get_standup_by_id()'s own select_related/prefetch_related.
+    # update_standup() deletes and recreates items in place, so a cached
+    # prefetch from this fetch would go stale and the PATCH response would
+    # incorrectly serialize the pre-update items. "user" is never
+    # reassigned by update_standup(), so caching it here is safe and
+    # avoids a second query when the permission check or response
+    # serialization reads it.
+    queryset = Standup.objects.select_related("user")
     serializer_class = StandupSerializer
 
     def get(self, request, *args, **kwargs):

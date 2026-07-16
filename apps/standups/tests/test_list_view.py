@@ -99,3 +99,20 @@ class StandupListViewTests(BaseAPITestCase):
         data = self.get_data(response)
         self.assertEqual(data["results"], [])
         self.assertEqual(data["count"], 0)
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        self._create(self.user, datetime.date(2026, 7, 1))
+        self._create(self.other, datetime.date(2026, 7, 2))
+
+        # Paginator count + select_related(user) main query + prefetch_related(items).
+        with self.assertNumQueries(3):
+            self.client.get(self.url)
+
+        extra_users = [
+            User.objects.create_user(email=f"extra{i}@example.com", password="pw") for i in range(5)
+        ]
+        for offset, user in enumerate(extra_users):
+            self._create(user, datetime.date(2026, 7, 3) + datetime.timedelta(days=offset))
+
+        with self.assertNumQueries(3):
+            self.client.get(self.url)

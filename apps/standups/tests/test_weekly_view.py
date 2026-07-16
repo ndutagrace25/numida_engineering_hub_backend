@@ -127,3 +127,21 @@ class WeeklyStandupsViewTests(BaseAPITestCase):
         self.assertNotIn("password", user_data)
         self.assertNotIn("is_staff", user_data)
         self.assertNotIn("is_superuser", user_data)
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        self._create(self.user, self.WEEK_START)
+        self._create(self.other, self.WEEK_START + datetime.timedelta(days=1))
+
+        # Not paginated by design — just the main select_related(user)
+        # query plus prefetch_related(items).
+        with self.assertNumQueries(2):
+            self._get(self.WEEK_START.isoformat())
+
+        extra_users = [
+            User.objects.create_user(email=f"extra{i}@example.com", password="pw") for i in range(5)
+        ]
+        for offset, user in enumerate(extra_users):
+            self._create(user, self.WEEK_START + datetime.timedelta(days=offset % 7))
+
+        with self.assertNumQueries(2):
+            self._get(self.WEEK_START.isoformat())

@@ -58,3 +58,21 @@ class UserPresenceListViewTests(BaseAPITestCase):
 
         self.assertEqual(response.status_code, 401)
         self.assertEqual(self.get_error(response)["code"], "NOT_AUTHENTICATED")
+
+    def test_query_count_does_not_grow_with_more_data(self):
+        UserPresence.objects.create(user=self.user, last_seen_at=timezone.now())
+
+        # A single select_related("presence") query over all active users,
+        # regardless of how many have a presence row.
+        with self.assertNumQueries(1):
+            self.client.get(self.url)
+
+        extra_users = [
+            User.objects.create_user(email=f"extra{i}@example.com", password="pw") for i in range(5)
+        ]
+        for i, user in enumerate(extra_users):
+            if i % 2 == 0:
+                UserPresence.objects.create(user=user, last_seen_at=timezone.now())
+
+        with self.assertNumQueries(1):
+            self.client.get(self.url)

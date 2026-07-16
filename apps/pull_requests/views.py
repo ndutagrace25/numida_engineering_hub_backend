@@ -125,9 +125,10 @@ class PullRequestLinkListCreateView(generics.GenericAPIView):
 
     def get(self, request, *args, **kwargs):
         # created_by is a forward, to-one FK, so none of these
-        # filters/search fields can multiply rows — distinct() is kept
-        # anyway for consistency with the other list endpoints.
-        queryset = self.filter_queryset(self.get_queryset()).distinct()
+        # filters/search fields can join to a to-many relation — rows
+        # can't be multiplied, so distinct() would only add an
+        # unnecessary sort/uniqueness step.
+        queryset = self.filter_queryset(self.get_queryset())
         page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)
@@ -197,7 +198,12 @@ class PullRequestLinkDetailView(generics.GenericAPIView):
     # restricts unsafe methods to the creator — matching the same reuse
     # already established for standups, AOB items, and PTO entries.
     permission_classes = [IsAuthenticated, IsPullRequestLinkCreator]
-    queryset = PullRequestLink.objects.all()
+    # select_related("created_by") backs self.get_object() for PATCH/
+    # DELETE (GET bypasses it via get_pull_request_link_by_id()'s own
+    # select_related) — avoids a second query when the permission check
+    # or response serialization reads created_by. Safe since created_by
+    # is never reassigned by update_pull_request_link().
+    queryset = PullRequestLink.objects.select_related("created_by")
     serializer_class = PullRequestLinkSerializer
 
     def get(self, request, *args, **kwargs):
