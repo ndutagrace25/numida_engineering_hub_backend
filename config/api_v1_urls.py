@@ -9,7 +9,8 @@ live under.
 from django.urls import include, path
 
 urlpatterns = [
-    path("accounts/", include("apps.accounts.urls")),
+    # Auth endpoints (login, later me/logout) live in the accounts app.
+    path("auth/", include("apps.accounts.urls")),
     path("standups/", include("apps.standups.urls")),
     path("presence/", include("apps.presence.urls")),
     path("aob/", include("apps.aob.urls")),
