@@ -145,3 +145,70 @@ class LogoutViewTests(BaseAPITestCase):
         self.assertEqual(response.status_code, 401)
         error = self.get_error(response)
         self.assertEqual(error["code"], "NOT_AUTHENTICATED")
+
+
+class CurrentUserViewTests(BaseAPITestCase):
+    url = "/api/v1/auth/me/"
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="jane@example.com",
+            password="s3cret-pw",
+            first_name="Jane",
+            last_name="Doe",
+        )
+
+    def test_authenticated_user_receives_200(self):
+        self.authenticate(self.user)
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_returns_the_logged_in_user(self):
+        self.authenticate(self.user)
+
+        response = self.client.get(self.url)
+
+        data = self.get_data(response)
+        self.assertEqual(data["id"], self.user.id)
+        self.assertEqual(data["email"], "jane@example.com")
+
+    def test_returns_expected_fields(self):
+        self.authenticate(self.user)
+
+        response = self.client.get(self.url)
+
+        data = self.get_data(response)
+        self.assertEqual(
+            set(data.keys()),
+            {
+                "id",
+                "email",
+                "first_name",
+                "last_name",
+                "display_name",
+                "is_active",
+                "date_joined",
+            },
+        )
+        self.assertEqual(data["display_name"], "Jane Doe")
+
+    def test_password_and_sensitive_fields_are_not_included(self):
+        self.authenticate(self.user)
+
+        response = self.client.get(self.url)
+
+        data = self.get_data(response)
+        self.assertNotIn("password", data)
+        self.assertNotIn("sessionid", data)
+        self.assertNotIn("permissions", data)
+        self.assertNotIn("is_staff", data)
+        self.assertNotIn("is_superuser", data)
+
+    def test_unauthenticated_request_returns_standard_auth_error(self):
+        response = self.client.get(self.url)
+
+        self.assertEqual(response.status_code, 401)
+        error = self.get_error(response)
+        self.assertEqual(error["code"], "NOT_AUTHENTICATED")

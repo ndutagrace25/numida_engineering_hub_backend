@@ -34,3 +34,13 @@ class LogoutView(APIView):
     def post(self, request):
         logout(request)
         return success_response(data=None, message="Logout successful.")
+
+
+class CurrentUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return success_response(
+            data=CurrentUserSerializer(request.user).data,
+            message="Current user retrieved successfully.",
+        )
