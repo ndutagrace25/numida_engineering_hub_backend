@@ -23,13 +23,8 @@ dev = [
     "pre-commit>=4.0",
 ]
 
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "numida_engineering_hub_backend.settings"
-python_files = ["test_*.py", "*_test.py"]
-testpaths = ["apps"]
-
 [tool.coverage.run]
-source = ["apps", "numida_engineering_hub_backend"]
+source = ["apps", "common", "config"]
 omit = [
     "*/migrations/*",
     "*/tests/*",
@@ -70,7 +65,7 @@ ignore = [
 "*/migrations/*.py" = ["E501"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["apps", "numida_engineering_hub_backend"]
+known-first-party = ["apps", "common", "config", "tests"]
 
 [tool.ruff.format]
 quote-style = "double"

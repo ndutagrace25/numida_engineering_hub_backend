@@ -1,5 +1,5 @@
 """
-ASGI config for numida_engineering_hub_backend project.
+ASGI config for the Numida Engineering Hub project.
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.asgi import get_asgi_application
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "numida_engineering_hub_backend.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 
 application = get_asgi_application()

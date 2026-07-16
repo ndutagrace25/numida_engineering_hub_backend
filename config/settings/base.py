@@ -1,11 +1,9 @@
 """
-Django settings for numida_engineering_hub_backend project.
+Base Django settings for the Numida Engineering Hub project.
 
-For more information on this file, see
-https://docs.djangoproject.com/en/5.2/topics/settings/
-
-For the full list of settings and their values, see
-https://docs.djangoproject.com/en/5.2/ref/settings/
+Shared by every environment. Environment-specific settings modules
+(development, test, production) import from this module and override
+only what differs for that environment.
 """
 
 from pathlib import Path
@@ -13,7 +11,7 @@ from pathlib import Path
 import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 env = environ.Env(
     DEBUG=(bool, False),
@@ -23,9 +21,6 @@ environ.Env.read_env(BASE_DIR / ".env")
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="django-insecure-change-me-in-env")
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = env("DEBUG")
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
@@ -49,7 +44,12 @@ THIRD_PARTY_APPS = [
 ]
 
 LOCAL_APPS = [
-    # Project apps will be registered here as they are added, e.g. "apps.authentication".
+    "apps.accounts",
+    "apps.standups",
+    "apps.presence",
+    "apps.aob",
+    "apps.pto",
+    "apps.pull_requests",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -65,7 +65,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "numida_engineering_hub_backend.urls"
+ROOT_URLCONF = "config.urls"
 
 TEMPLATES = [
     {
@@ -82,7 +82,8 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = "numida_engineering_hub_backend.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 
 # Database
@@ -90,7 +91,8 @@ WSGI_APPLICATION = "numida_engineering_hub_backend.wsgi.application"
 
 DATABASES = {
     "default": env.db(
-        "DATABASE_URL", default="postgres://postgres:postgres@localhost:5432/numida_engineering_hub"
+        "DATABASE_URL",
+        default="postgres://postgres:postgres@localhost:5432/numida_engineering_hub",
     ),
 }
 
@@ -119,7 +121,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "en-us"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Africa/Nairobi"
 
 USE_I18N = True
 
