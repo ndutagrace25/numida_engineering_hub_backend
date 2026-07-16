@@ -20,3 +20,29 @@ def create_standup(*, user, validated_data):
         StandupItem.objects.bulk_create(StandupItem(standup=standup, **item) for item in items_data)
 
     return standup
+
+
+def update_standup(*, standup, validated_data):
+    """Update `standup` and fully replace its nested StandupItems.
+
+    `validated_data` is expected to already be validated (e.g. via
+    StandupSerializer). The owner is never touched here — "user" is
+    excluded even if present, as a second safeguard alongside the
+    serializer's read-only field — and a duplicate (user, standup_date)
+    conflict with a *different* standup surfaces as IntegrityError from
+    the model's UniqueConstraint, same as create_standup().
+    """
+    items_data = validated_data["items"]
+    standup_fields = {
+        key: value for key, value in validated_data.items() if key not in ("items", "user")
+    }
+
+    with transaction.atomic():
+        for field, value in standup_fields.items():
+            setattr(standup, field, value)
+        standup.save()
+
+        standup.items.all().delete()
+        StandupItem.objects.bulk_create(StandupItem(standup=standup, **item) for item in items_data)
+
+    return standup
