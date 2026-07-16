@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import generics
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
@@ -10,8 +11,103 @@ from apps.pto.selectors import get_pto_entry_by_id, list_pto_entries
 from apps.pto.serializers import PTOEntrySerializer
 from apps.pto.services import create_pto_entry, delete_pto_entry, update_pto_entry
 from common.responses import created_response, success_response
+from common.schema import (
+    AUTHENTICATION_ERROR_RESPONSE,
+    not_found_response,
+    null_data_envelope,
+    permission_error_response,
+    success_envelope,
+    validation_error_response,
+)
+
+_PTO_ENTRY_EXAMPLE = {
+    "id": 33,
+    "user": {
+        "id": 12,
+        "first_name": "Grace",
+        "last_name": "Nduta",
+        "display_name": "Grace Nduta",
+    },
+    "start_date": "2026-07-20",
+    "end_date": "2026-07-24",
+    "reason": "Annual leave",
+    "handover_url": "https://docs.example.com/handover/grace-july",
+    "created_by": {
+        "id": 12,
+        "first_name": "Grace",
+        "last_name": "Nduta",
+        "display_name": "Grace Nduta",
+    },
+    "created_at": "2026-07-13T09:00:00+03:00",
+    "updated_at": "2026-07-13T09:00:00+03:00",
+}
+
+_CREATE_REQUEST_EXAMPLE = OpenApiExample(
+    "CreatePTORequest",
+    value={
+        "user": 12,
+        "start_date": "2026-07-20",
+        "end_date": "2026-07-24",
+        "reason": "Annual leave",
+        "handover_url": "https://docs.example.com/handover/grace-july",
+    },
+    request_only=True,
+)
+
+_PTO_VALIDATION_ERROR_RESPONSE = validation_error_response(
+    "end_date is earlier than start_date, or handover_url is not HTTPS.",
+    {"end_date": ["End date cannot be earlier than start date."]},
+)
+
+# Built once and reused across every action that returns this shape
+# (create, retrieve, update) — calling success_envelope() again per-action
+# would produce distinct dynamic classes that happen to share a name,
+# which drf-spectacular flags as a component collision.
+_PTO_ENTRY_RESPONSE = success_envelope("PTOEntryResponse", PTOEntrySerializer())
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["PTO"],
+        operation_id="listPTO",
+        summary="List PTO entries",
+        description=(
+            "List PTO entries, soonest start_date first. Supports filtering "
+            "by user, creator, start_date/end_date, a date_after/date_before "
+            "range on start_date, and active_on (entries covering a single "
+            "date), plus free-text search across the PTO-taker's name and "
+            "reason."
+        ),
+        responses={
+            200: PTOEntrySerializer(many=True),
+            401: AUTHENTICATION_ERROR_RESPONSE,
+        },
+    ),
+    post=extend_schema(
+        tags=["PTO"],
+        operation_id="createPTO",
+        summary="Create a PTO entry",
+        description=(
+            "Log a PTO entry. `user` (who is taking the leave) is passed as "
+            "a plain id and may be a different person than the "
+            "authenticated creator — e.g. logging leave on someone's behalf."
+        ),
+        examples=[
+            _CREATE_REQUEST_EXAMPLE,
+            OpenApiExample(
+                "CreatePTOResponse",
+                value={"message": "PTO entry created successfully.", "data": _PTO_ENTRY_EXAMPLE},
+                response_only=True,
+                status_codes=["201"],
+            ),
+        ],
+        responses={
+            201: _PTO_ENTRY_RESPONSE,
+            400: _PTO_VALIDATION_ERROR_RESPONSE,
+            401: AUTHENTICATION_ERROR_RESPONSE,
+        },
+    ),
+)
 class PTOEntryListCreateView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = PTOEntrySerializer
@@ -43,6 +139,51 @@ class PTOEntryListCreateView(generics.GenericAPIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["PTO"],
+        operation_id="retrievePTO",
+        summary="Retrieve a PTO entry",
+        description="Retrieve a single PTO entry by id.",
+        responses={
+            200: _PTO_ENTRY_RESPONSE,
+            401: AUTHENTICATION_ERROR_RESPONSE,
+            404: not_found_response("PTO entry"),
+        },
+    ),
+    patch=extend_schema(
+        tags=["PTO"],
+        operation_id="updatePTO",
+        summary="Update a PTO entry",
+        description="Partially update a PTO entry. Only the creator may update it.",
+        examples=[
+            OpenApiExample(
+                "UpdatePTORequest",
+                value={"end_date": "2026-07-25"},
+                request_only=True,
+            ),
+        ],
+        responses={
+            200: _PTO_ENTRY_RESPONSE,
+            400: _PTO_VALIDATION_ERROR_RESPONSE,
+            401: AUTHENTICATION_ERROR_RESPONSE,
+            403: permission_error_response("You do not have permission to perform this action."),
+            404: not_found_response("PTO entry"),
+        },
+    ),
+    delete=extend_schema(
+        tags=["PTO"],
+        operation_id="deletePTO",
+        summary="Delete a PTO entry",
+        description="Delete a PTO entry. Only the creator may delete it.",
+        responses={
+            200: null_data_envelope("DeletePTOResponse"),
+            401: AUTHENTICATION_ERROR_RESPONSE,
+            403: permission_error_response("You do not have permission to perform this action."),
+            404: not_found_response("PTO entry"),
+        },
+    ),
+)
 class PTOEntryDetailView(generics.GenericAPIView):
     # IsPTOEntryCreator (IsOwnerOrReadOnly with owner_field="created_by")
     # allows safe methods for anyone and restricts unsafe methods to the

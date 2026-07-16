@@ -18,3 +18,18 @@ class DefaultPagination(PageNumberPagination):
             previous_url=self.get_previous_link(),
             results=data,
         )
+
+    def get_paginated_response_schema(self, schema):
+        # Schema-only override (never called at request time) so
+        # drf-spectacular's automatic pagination wrapping reflects the
+        # {"message", "data": {...}} envelope get_paginated_response()
+        # actually returns, instead of the raw {"count","next",...} shape.
+        page_schema = super().get_paginated_response_schema(schema)
+        return {
+            "type": "object",
+            "required": ["message", "data"],
+            "properties": {
+                "message": {"type": "string", "example": "Request completed successfully."},
+                "data": page_schema,
+            },
+        }

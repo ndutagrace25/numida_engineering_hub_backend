@@ -23,6 +23,10 @@ class PullRequestLinkSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "url": {"help_text": "HTTPS URL of the pull request."},
+            "week_start": {"help_text": "The Monday that starts the week this PR was shared in."},
+        }
 
     def validate_url(self, value):
         validate_https_url(value)

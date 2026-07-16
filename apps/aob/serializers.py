@@ -22,6 +22,10 @@ class AOBItemSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "week_start": {"help_text": "The Monday that starts the week this item belongs to."},
+            "external_url": {"help_text": "Optional HTTPS link with more detail."},
+        }
 
     def validate_title(self, value):
         validate_non_empty_string(value)

@@ -10,7 +10,7 @@ from pathlib import Path
 
 import environ
 
-from common.constants import APPLICATION_NAME, APPLICATION_VERSION
+from common.constants import API_VERSION
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -178,15 +178,39 @@ REST_FRAMEWORK = {
 # https://drf-spectacular.readthedocs.io/en/latest/settings.html
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": f"{APPLICATION_NAME} API",
-    "DESCRIPTION": "API for the Numida internal engineering workspace.",
-    "VERSION": APPLICATION_VERSION,
-    "CONTACT": {
-        "name": "Numida Engineering",
-        "email": env("API_CONTACT_EMAIL", default="engineering@example.com"),
-    },
-    "LICENSE": {"name": env("API_LICENSE_NAME", default="Proprietary")},
+    "TITLE": "Numida Engineering Hub API",
+    "DESCRIPTION": "REST API powering the Numida Engineering Hub.",
+    "VERSION": API_VERSION,
+    "CONTACT": {"name": "Engineering Team"},
+    "LICENSE": {"name": "MIT"},
+    # The schema itself is served at /api/schema/, so it has no business
+    # linking to a copy of itself.
     "SERVE_INCLUDE_SCHEMA": False,
+    # Every view is under /api/v1/ (except the schema/docs endpoints
+    # themselves) — stripping it keeps operation IDs and tag inference
+    # focused on the resource path instead of repeating "v1" everywhere.
+    "SCHEMA_PATH_PREFIX": "/api/v1",
+    "TAGS": [
+        {"name": "Authentication", "description": "Session login, logout, and the current user."},
+        {"name": "Users", "description": "Read-only directory of active users."},
+        {"name": "Standups", "description": "Daily standup submissions and their nested items."},
+        {"name": "Presence", "description": "Online/recently-active/offline presence tracking."},
+        {"name": "AOB", "description": "Any-other-business items raised for a given week."},
+        {"name": "PTO", "description": "Paid time off entries."},
+        {"name": "Pull Request Links", "description": "Pull requests shared for a given week."},
+        {"name": "Dashboard", "description": "Aggregated read-only view across all modules."},
+    ],
+    "SWAGGER_UI_SETTINGS": {
+        "displayRequestDuration": True,
+        "persistAuthorization": True,
+        "defaultModelsExpandDepth": 1,
+        "docExpansion": "none",
+        "tryItOutEnabled": True,
+    },
+    "REDOC_UI_SETTINGS": {
+        "hideDownloadButton": False,
+        "expandResponses": "200,201",
+    },
 }
 
 

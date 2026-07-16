@@ -42,6 +42,11 @@ class StandupSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "blockers": {
+                "help_text": "Free-text description of anything blocking progress. Optional."
+            },
+        }
 
     def validate_items(self, items):
         seen_positions = set()
@@ -77,7 +82,9 @@ class WeeklyStandupsQuerySerializer(serializers.Serializer):
     endpoint. Not tied to any model — pure input validation.
     """
 
-    week_start = serializers.DateField()
+    week_start = serializers.DateField(
+        help_text="The Monday that starts the target week, as YYYY-MM-DD."
+    )
 
     def validate_week_start(self, value):
         validate_monday(value)

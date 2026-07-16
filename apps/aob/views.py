@@ -1,4 +1,5 @@
 from django_filters.rest_framework import DjangoFilterBackend
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import generics
 from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
@@ -10,8 +11,93 @@ from apps.aob.selectors import get_aob_item_by_id, list_aob_items
 from apps.aob.serializers import AOBItemSerializer
 from apps.aob.services import create_aob_item, delete_aob_item, update_aob_item
 from common.responses import created_response, success_response
+from common.schema import (
+    AUTHENTICATION_ERROR_RESPONSE,
+    not_found_response,
+    null_data_envelope,
+    permission_error_response,
+    success_envelope,
+    validation_error_response,
+)
+
+_AOB_ITEM_EXAMPLE = {
+    "id": 21,
+    "title": "Office closed Friday",
+    "description": "The office will be closed for a public holiday.",
+    "external_url": "",
+    "week_start": "2026-07-13",
+    "position": 1,
+    "created_by": {
+        "id": 12,
+        "first_name": "Grace",
+        "last_name": "Nduta",
+        "display_name": "Grace Nduta",
+    },
+    "created_at": "2026-07-13T09:00:00+03:00",
+    "updated_at": "2026-07-13T09:00:00+03:00",
+}
+
+_CREATE_REQUEST_EXAMPLE = OpenApiExample(
+    "CreateAOBRequest",
+    value={
+        "title": "Office closed Friday",
+        "description": "The office will be closed for a public holiday.",
+        "external_url": "",
+        "week_start": "2026-07-13",
+        "position": 1,
+    },
+    request_only=True,
+)
+
+_AOB_VALIDATION_ERROR_RESPONSE = validation_error_response(
+    "title is blank, external_url is not HTTPS, or week_start does not fall on a Monday.",
+    {"week_start": ["Date must fall on a Monday."]},
+)
+
+# Built once and reused across every action that returns this shape
+# (create, retrieve, update) — calling success_envelope() again per-action
+# would produce distinct dynamic classes that happen to share a name,
+# which drf-spectacular flags as a component collision.
+_AOB_ITEM_RESPONSE = success_envelope("AOBItemResponse", AOBItemSerializer())
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["AOB"],
+        operation_id="listAOB",
+        summary="List AOB items",
+        description=(
+            "List any-other-business items across all weeks, newest week "
+            "first. Supports filtering by week_start, a week_after/"
+            "week_before range, and creator, plus free-text search across "
+            "title, description, and creator name."
+        ),
+        responses={
+            200: AOBItemSerializer(many=True),
+            401: AUTHENTICATION_ERROR_RESPONSE,
+        },
+    ),
+    post=extend_schema(
+        tags=["AOB"],
+        operation_id="createAOB",
+        summary="Create an AOB item",
+        description="Create an any-other-business item for a given week.",
+        examples=[
+            _CREATE_REQUEST_EXAMPLE,
+            OpenApiExample(
+                "CreateAOBResponse",
+                value={"message": "AOB item created successfully.", "data": _AOB_ITEM_EXAMPLE},
+                response_only=True,
+                status_codes=["201"],
+            ),
+        ],
+        responses={
+            201: _AOB_ITEM_RESPONSE,
+            400: _AOB_VALIDATION_ERROR_RESPONSE,
+            401: AUTHENTICATION_ERROR_RESPONSE,
+        },
+    ),
+)
 class AOBItemListCreateView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = AOBItemSerializer
@@ -44,6 +130,51 @@ class AOBItemListCreateView(generics.GenericAPIView):
         )
 
 
+@extend_schema_view(
+    get=extend_schema(
+        tags=["AOB"],
+        operation_id="retrieveAOB",
+        summary="Retrieve an AOB item",
+        description="Retrieve a single AOB item by id.",
+        responses={
+            200: _AOB_ITEM_RESPONSE,
+            401: AUTHENTICATION_ERROR_RESPONSE,
+            404: not_found_response("AOB item"),
+        },
+    ),
+    patch=extend_schema(
+        tags=["AOB"],
+        operation_id="updateAOB",
+        summary="Update an AOB item",
+        description="Partially update an AOB item. Only the creator may update it.",
+        examples=[
+            OpenApiExample(
+                "UpdateAOBRequest",
+                value={"description": "Updated: the office reopens Monday."},
+                request_only=True,
+            ),
+        ],
+        responses={
+            200: _AOB_ITEM_RESPONSE,
+            400: _AOB_VALIDATION_ERROR_RESPONSE,
+            401: AUTHENTICATION_ERROR_RESPONSE,
+            403: permission_error_response("You do not have permission to perform this action."),
+            404: not_found_response("AOB item"),
+        },
+    ),
+    delete=extend_schema(
+        tags=["AOB"],
+        operation_id="deleteAOB",
+        summary="Delete an AOB item",
+        description="Delete an AOB item. Only the creator may delete it.",
+        responses={
+            200: null_data_envelope("DeleteAOBResponse"),
+            401: AUTHENTICATION_ERROR_RESPONSE,
+            403: permission_error_response("You do not have permission to perform this action."),
+            404: not_found_response("AOB item"),
+        },
+    ),
+)
 class AOBItemDetailView(generics.GenericAPIView):
     # IsAOBItemCreator (IsOwnerOrReadOnly with owner_field="created_by")
     # allows safe methods for anyone and restricts unsafe methods to the

@@ -59,6 +59,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         return self.email
 
     @property
-    def display_name(self):
+    def display_name(self) -> str:
         full_name = f"{self.first_name} {self.last_name}".strip()
         return full_name or self.email

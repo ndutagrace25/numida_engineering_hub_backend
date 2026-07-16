@@ -1,7 +1,8 @@
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from apps.accounts.serializers import MinimalUserSerializer
-from apps.presence.models import UserPresence
+from apps.presence.models import PresenceStatus, UserPresence
 
 
 class UserPresenceSerializer(serializers.ModelSerializer):
@@ -12,7 +13,8 @@ class UserPresenceSerializer(serializers.ModelSerializer):
         model = UserPresence
         fields = ["user", "last_seen_at", "status"]
 
-    def get_status(self, obj):
+    @extend_schema_field(serializers.ChoiceField(choices=PresenceStatus.choices))
+    def get_status(self, obj) -> str:
         return obj.status
 
 

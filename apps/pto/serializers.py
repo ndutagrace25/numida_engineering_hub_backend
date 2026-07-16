@@ -28,6 +28,14 @@ class PTOEntrySerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
+        extra_kwargs = {
+            "user": {
+                "help_text": (
+                    "Id of the user taking PTO — may differ from the authenticated creator."
+                )
+            },
+            "handover_url": {"help_text": "Optional HTTPS link to handover notes."},
+        }
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
