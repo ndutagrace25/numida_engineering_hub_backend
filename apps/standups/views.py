@@ -2,11 +2,10 @@ from django.db import IntegrityError
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
 
 from apps.standups.models import Standup
 from apps.standups.permissions import IsStandupOwner
-from apps.standups.selectors import get_standup_by_id
+from apps.standups.selectors import get_standup_by_id, list_standups
 from apps.standups.serializers import StandupSerializer
 from apps.standups.services import create_standup, delete_standup, update_standup
 from common.responses import created_response, success_response
@@ -16,10 +15,19 @@ DUPLICATE_STANDUP_DATE_ERROR = {
 }
 
 
-class StandupCreateView(APIView):
+class StandupListCreateView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = StandupSerializer
 
-    def post(self, request):
+    def get_queryset(self):
+        return list_standups()
+
+    def get(self, request, *args, **kwargs):
+        page = self.paginate_queryset(self.get_queryset())
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
         serializer = StandupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
