@@ -9,8 +9,11 @@ live under.
 from django.urls import include, path
 
 urlpatterns = [
-    # Auth endpoints (login, later me/logout) live in the accounts app.
-    path("auth/", include("apps.accounts.urls")),
+    # The accounts app owns both /auth/* (login/logout/me) and /users/*
+    # (the user resource), so it's mounted at the v1 root and spells out
+    # both prefixes itself, rather than getting a single app-name segment
+    # like the other apps below.
+    path("", include("apps.accounts.urls")),
     path("standups/", include("apps.standups.urls")),
     path("presence/", include("apps.presence.urls")),
     path("aob/", include("apps.aob.urls")),

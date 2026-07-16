@@ -1,8 +1,11 @@
 from django.contrib.auth import login, logout
+from rest_framework import generics
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
-from apps.accounts.serializers import CurrentUserSerializer, LoginSerializer
+from apps.accounts.selectors import get_active_users
+from apps.accounts.serializers import CurrentUserSerializer, LoginSerializer, UserSerializer
 from common.responses import success_response
 
 
@@ -44,3 +47,13 @@ class CurrentUserView(APIView):
             data=CurrentUserSerializer(request.user).data,
             message="Current user retrieved successfully.",
         )
+
+
+class UserListView(generics.ListAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
+    filter_backends = [SearchFilter]
+    search_fields = ["first_name", "last_name", "email"]
+
+    def get_queryset(self):
+        return get_active_users()
