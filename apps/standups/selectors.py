@@ -24,3 +24,15 @@ def list_standups():
         .prefetch_related(_ITEMS_PREFETCH)
         .order_by("-standup_date", "-created_at")
     )
+
+
+def list_user_standups(user):
+    """Same ordering/preloading as list_standups(), scoped to `user`'s own
+    standups only.
+    """
+    return (
+        Standup.objects.filter(user=user)
+        .select_related("user")
+        .prefetch_related(_ITEMS_PREFETCH)
+        .order_by("-standup_date", "-created_at")
+    )

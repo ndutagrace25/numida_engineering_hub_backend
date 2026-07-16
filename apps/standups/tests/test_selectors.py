@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.standups.models import Standup
-from apps.standups.selectors import get_standup_by_id, list_standups
+from apps.standups.selectors import get_standup_by_id, list_standups, list_user_standups
 from apps.standups.services import create_standup
 
 
@@ -105,3 +105,54 @@ class ListStandupsSelectorTests(TestCase):
 
     def test_empty_database_returns_empty_queryset(self):
         self.assertEqual(list(list_standups()), [])
+
+
+class ListUserStandupsSelectorTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="jane@example.com", password="pw")
+        self.other = User.objects.create_user(email="other@example.com", password="pw")
+
+    def _create(self, user, standup_date):
+        return create_standup(
+            user=user,
+            validated_data={
+                "standup_date": standup_date,
+                "blockers": "",
+                "items": _valid_items(),
+            },
+        )
+
+    def test_returns_only_the_users_standups(self):
+        self._create(self.user, datetime.date(2026, 7, 13))
+        self._create(self.other, datetime.date(2026, 7, 14))
+
+        standups = list(list_user_standups(self.user))
+
+        self.assertEqual([standup.user_id for standup in standups], [self.user.id])
+
+    def test_excludes_other_users_standups(self):
+        self._create(self.other, datetime.date(2026, 7, 13))
+
+        self.assertEqual(list(list_user_standups(self.user)), [])
+
+    def test_ordered_by_standup_date_desc_then_created_at_desc(self):
+        older = self._create(self.user, datetime.date(2026, 7, 10))
+        first = self._create(self.user, datetime.date(2026, 7, 15))
+        second = self._create(self.user, datetime.date(2026, 7, 16))
+
+        ids = [standup.id for standup in list_user_standups(self.user)]
+
+        self.assertEqual(ids, [second.id, first.id, older.id])
+
+    def test_empty_result_for_user_with_no_standups(self):
+        self.assertEqual(list(list_user_standups(self.user)), [])
+
+    def test_avoids_n_plus_one_queries(self):
+        for offset in range(3):
+            self._create(self.user, datetime.date(2026, 7, 10) - datetime.timedelta(days=offset))
+
+        with self.assertNumQueries(2):
+            standups = list(list_user_standups(self.user))
+            for standup in standups:
+                _ = standup.user.email
+                _ = list(standup.items.all())

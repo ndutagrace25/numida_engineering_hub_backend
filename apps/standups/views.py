@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.standups.models import Standup
 from apps.standups.permissions import IsStandupOwner
-from apps.standups.selectors import get_standup_by_id, list_standups
+from apps.standups.selectors import get_standup_by_id, list_standups, list_user_standups
 from apps.standups.serializers import StandupSerializer
 from apps.standups.services import create_standup, delete_standup, update_standup
 from common.responses import created_response, success_response
@@ -43,6 +43,19 @@ class StandupListCreateView(generics.GenericAPIView):
             data=StandupSerializer(standup).data,
             message="Standup submitted successfully.",
         )
+
+
+class MyStandupsListView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = StandupSerializer
+
+    def get_queryset(self):
+        return list_user_standups(self.request.user)
+
+    def get(self, request, *args, **kwargs):
+        page = self.paginate_queryset(self.get_queryset())
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
 
 
 class StandupDetailView(generics.GenericAPIView):
