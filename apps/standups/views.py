@@ -5,8 +5,13 @@ from rest_framework.permissions import IsAuthenticated
 
 from apps.standups.models import Standup
 from apps.standups.permissions import IsStandupOwner
-from apps.standups.selectors import get_standup_by_id, list_standups, list_user_standups
-from apps.standups.serializers import StandupSerializer
+from apps.standups.selectors import (
+    get_standup_by_id,
+    list_standups,
+    list_user_standups,
+    list_weekly_standups,
+)
+from apps.standups.serializers import StandupSerializer, WeeklyStandupsQuerySerializer
 from apps.standups.services import create_standup, delete_standup, update_standup
 from common.responses import created_response, success_response
 
@@ -56,6 +61,24 @@ class MyStandupsListView(generics.GenericAPIView):
         page = self.paginate_queryset(self.get_queryset())
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)
+
+
+class WeeklyStandupsListView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = StandupSerializer
+
+    def get(self, request, *args, **kwargs):
+        query = WeeklyStandupsQuerySerializer(data=request.query_params)
+        query.is_valid(raise_exception=True)
+
+        standups = list_weekly_standups(query.validated_data["week_start"])
+
+        # No pagination here — a single week's worth of standups is the
+        # entire, intentionally bounded result set.
+        return success_response(
+            data=StandupSerializer(standups, many=True).data,
+            message="Weekly standups retrieved successfully.",
+        )
 
 
 class StandupDetailView(generics.GenericAPIView):

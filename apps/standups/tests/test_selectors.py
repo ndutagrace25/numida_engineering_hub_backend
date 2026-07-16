@@ -5,7 +5,12 @@ from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.standups.models import Standup
-from apps.standups.selectors import get_standup_by_id, list_standups, list_user_standups
+from apps.standups.selectors import (
+    get_standup_by_id,
+    list_standups,
+    list_user_standups,
+    list_weekly_standups,
+)
 from apps.standups.services import create_standup
 
 
@@ -153,6 +158,77 @@ class ListUserStandupsSelectorTests(TestCase):
 
         with self.assertNumQueries(2):
             standups = list(list_user_standups(self.user))
+            for standup in standups:
+                _ = standup.user.email
+                _ = list(standup.items.all())
+
+
+class ListWeeklyStandupsSelectorTests(TestCase):
+    # A known Monday, so week_start/week_end are unambiguous.
+    WEEK_START = datetime.date(2026, 7, 13)
+    WEEK_END = datetime.date(2026, 7, 19)
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email="jane@example.com", password="pw", first_name="Jane", last_name="Doe"
+        )
+        self.other = User.objects.create_user(
+            email="other@example.com", password="pw", first_name="Amina", last_name="Otieno"
+        )
+
+    def _create(self, user, standup_date):
+        return create_standup(
+            user=user,
+            validated_data={
+                "standup_date": standup_date,
+                "blockers": "",
+                "items": _valid_items(),
+            },
+        )
+
+    def test_returns_all_standups_within_the_selected_week(self):
+        within_start = self._create(self.user, self.WEEK_START)
+        within_end = self._create(self.other, self.WEEK_END)
+
+        ids = {standup.id for standup in list_weekly_standups(self.WEEK_START)}
+
+        self.assertEqual(ids, {within_start.id, within_end.id})
+
+    def test_excludes_standups_before_and_after_the_selected_week(self):
+        self._create(self.user, self.WEEK_START - datetime.timedelta(days=1))
+        self._create(self.other, self.WEEK_END + datetime.timedelta(days=1))
+
+        self.assertEqual(list(list_weekly_standups(self.WEEK_START)), [])
+
+    def test_includes_standups_from_different_users(self):
+        self._create(self.user, self.WEEK_START)
+        self._create(self.other, self.WEEK_START + datetime.timedelta(days=1))
+
+        emails = {s.user.email for s in list_weekly_standups(self.WEEK_START)}
+        self.assertEqual(emails, {"jane@example.com", "other@example.com"})
+
+    def test_ordered_by_standup_date_then_user_name(self):
+        later_in_week = self._create(self.user, self.WEEK_START + datetime.timedelta(days=2))
+        # Amina Otieno sorts before Jane Doe by first name, same date.
+        same_day_amina = self._create(self.other, self.WEEK_START)
+        same_day_jane = User.objects.create_user(
+            email="jane2@example.com", password="pw", first_name="Zed", last_name="Doe"
+        )
+        same_day_zed = self._create(same_day_jane, self.WEEK_START)
+
+        ids = [standup.id for standup in list_weekly_standups(self.WEEK_START)]
+
+        self.assertEqual(ids, [same_day_amina.id, same_day_zed.id, later_in_week.id])
+
+    def test_week_with_no_standups_returns_empty_list(self):
+        self.assertEqual(list(list_weekly_standups(self.WEEK_START)), [])
+
+    def test_avoids_n_plus_one_queries(self):
+        for offset in range(3):
+            self._create(self.user, self.WEEK_START + datetime.timedelta(days=offset))
+
+        with self.assertNumQueries(2):
+            standups = list(list_weekly_standups(self.WEEK_START))
             for standup in standups:
                 _ = standup.user.email
                 _ = list(standup.items.all())

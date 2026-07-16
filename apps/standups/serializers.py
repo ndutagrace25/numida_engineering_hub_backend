@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.accounts.serializers import UserSerializer
 from apps.standups.models import Standup, StandupItem
-from common.validators import validate_non_empty_string
+from common.validators import validate_monday, validate_non_empty_string
 
 REQUIRED_SECTIONS = (
     StandupItem.Section.COMPLETED,
@@ -70,3 +70,15 @@ class StandupSerializer(serializers.ModelSerializer):
                 {"items": f"At least one item is required for: {', '.join(missing)}."}
             )
         return attrs
+
+
+class WeeklyStandupsQuerySerializer(serializers.Serializer):
+    """Validates the `week_start` query parameter for the weekly standups
+    endpoint. Not tied to any model — pure input validation.
+    """
+
+    week_start = serializers.DateField()
+
+    def validate_week_start(self, value):
+        validate_monday(value)
+        return value

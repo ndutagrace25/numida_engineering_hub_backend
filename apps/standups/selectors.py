@@ -1,3 +1,5 @@
+import datetime
+
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 
@@ -35,4 +37,19 @@ def list_user_standups(user):
         .select_related("user")
         .prefetch_related(_ITEMS_PREFETCH)
         .order_by("-standup_date", "-created_at")
+    )
+
+
+def list_weekly_standups(week_start):
+    """All standups (any user) from `week_start` through the following
+    Sunday, ordered by standup_date then the owner's name. `week_start` is
+    assumed to already be validated as a Monday — this function doesn't
+    check that itself.
+    """
+    week_end = week_start + datetime.timedelta(days=6)
+    return (
+        Standup.objects.filter(standup_date__gte=week_start, standup_date__lte=week_end)
+        .select_related("user")
+        .prefetch_related(_ITEMS_PREFETCH)
+        .order_by("standup_date", "user__first_name", "user__last_name")
     )
