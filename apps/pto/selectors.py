@@ -19,3 +19,11 @@ def list_pto_entries():
     return PTOEntry.objects.select_related("user", "created_by").order_by(
         "start_date", "end_date", "user__first_name", "user__last_name"
     )
+
+
+def list_pto_entries_for_week(week_start, week_end):
+    """PTO entries that overlap any date in [week_start, week_end] —
+    reuses list_pto_entries() for the select_related/ordering and adds the
+    overlap filter, so callers like the dashboard don't duplicate it.
+    """
+    return list_pto_entries().filter(start_date__lte=week_end, end_date__gte=week_start)

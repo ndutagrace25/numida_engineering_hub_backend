@@ -1,6 +1,13 @@
 import datetime
 
+from django.utils import timezone
+
 from apps.accounts.models import User
+from apps.aob.services import create_aob_item
+from apps.presence.models import UserPresence
+from apps.pto.services import create_pto_entry
+from apps.pull_requests.models import PullRequestLink
+from apps.pull_requests.services import create_pull_request_link
 from apps.standups.services import create_standup
 from tests.base import BaseAPITestCase
 
@@ -23,10 +30,12 @@ class DashboardViewTests(BaseAPITestCase):
         self.grace = User.objects.create_user(
             email="grace@example.com", password="pw", first_name="Grace", last_name="Nduta"
         )
-        self.amina = User.objects.create_user(email="amina@example.com", password="pw")
+        self.amina = User.objects.create_user(
+            email="amina@example.com", password="pw", first_name="Amina", last_name="Otieno"
+        )
         self.authenticate(self.grace)
 
-    def _create(self, user, standup_date):
+    def _create_standup(self, user, standup_date):
         return create_standup(
             user=user,
             validated_data={
@@ -41,7 +50,7 @@ class DashboardViewTests(BaseAPITestCase):
         return self.client.get(self.url, params)
 
     def test_returns_dashboard_for_valid_week(self):
-        self._create(self.grace, WEEK_START)
+        self._create_standup(self.grace, WEEK_START)
 
         response = self._get(WEEK_START.isoformat())
 
@@ -50,21 +59,114 @@ class DashboardViewTests(BaseAPITestCase):
         data = self.get_data(response)
         self.assertEqual(data["week_start"], "2026-07-13")
         self.assertEqual(data["week_end"], "2026-07-19")
-        self.assertEqual(data["total_active_users"], 2)
-        self.assertEqual(data["total_submitted_standups"], 1)
-        self.assertEqual([u["email"] for u in data["users_who_submitted"]], ["grace@example.com"])
-        self.assertEqual(
-            [u["email"] for u in data["users_who_have_not_submitted"]], ["amina@example.com"]
-        )
-        self.assertEqual(len(data["latest_standups"]), 1)
 
-    def test_week_with_no_standups_returns_valid_empty_data(self):
+        summary = data["standup_summary"]
+        self.assertEqual(summary["total_active_users"], 2)
+        self.assertEqual(summary["total_submitted_standups"], 1)
+        self.assertEqual([u["first_name"] for u in summary["users_who_submitted"]], ["Grace"])
+        self.assertEqual(
+            [u["first_name"] for u in summary["users_who_have_not_submitted"]], ["Amina"]
+        )
+        self.assertEqual(len(data["weekly_standups"]), 1)
+
+    def test_standup_summary_uses_limited_non_sensitive_user_details(self):
+        self._create_standup(self.grace, WEEK_START)
+
         response = self._get(WEEK_START.isoformat())
 
         data = self.get_data(response)
-        self.assertEqual(data["total_submitted_standups"], 0)
-        self.assertEqual(data["users_who_submitted"], [])
-        self.assertEqual(data["latest_standups"], [])
+        for user in data["standup_summary"]["users_who_submitted"]:
+            self.assertNotIn("email", user)
+            self.assertNotIn("is_active", user)
+        for user in data["standup_summary"]["users_who_have_not_submitted"]:
+            self.assertNotIn("email", user)
+            self.assertNotIn("is_active", user)
+
+    def test_aob_items_within_week_are_included(self):
+        create_aob_item(
+            user=self.grace,
+            validated_data={
+                "title": "Office closed Friday",
+                "description": "",
+                "external_url": "",
+                "week_start": WEEK_START,
+                "position": 1,
+            },
+        )
+
+        response = self._get(WEEK_START.isoformat())
+
+        data = self.get_data(response)
+        self.assertEqual(len(data["aob_items"]), 1)
+        self.assertEqual(data["aob_items"][0]["title"], "Office closed Friday")
+
+    def test_pull_request_links_within_week_are_included(self):
+        create_pull_request_link(
+            created_by=self.grace,
+            validated_data={
+                "title": "Fix bug",
+                "url": "https://github.com/org/repo/pull/1",
+                "group_name": "App PRs",
+                "status": PullRequestLink.Status.OPEN,
+                "week_start": WEEK_START,
+                "position": 1,
+            },
+        )
+
+        response = self._get(WEEK_START.isoformat())
+
+        data = self.get_data(response)
+        self.assertEqual(len(data["pull_request_links"]), 1)
+        self.assertEqual(data["pull_request_links"][0]["title"], "Fix bug")
+
+    def test_pto_entries_overlapping_week_are_included(self):
+        create_pto_entry(
+            created_by=self.grace,
+            validated_data={
+                "user": self.grace,
+                "start_date": WEEK_START - datetime.timedelta(days=2),
+                "end_date": WEEK_START + datetime.timedelta(days=1),
+                "reason": "",
+                "handover_url": "",
+            },
+        )
+        create_pto_entry(
+            created_by=self.grace,
+            validated_data={
+                "user": self.amina,
+                "start_date": WEEK_END + datetime.timedelta(days=5),
+                "end_date": WEEK_END + datetime.timedelta(days=7),
+                "reason": "",
+                "handover_url": "",
+            },
+        )
+
+        response = self._get(WEEK_START.isoformat())
+
+        data = self.get_data(response)
+        self.assertEqual(len(data["pto_entries"]), 1)
+        self.assertEqual(data["pto_entries"][0]["user"]["id"], self.grace.id)
+
+    def test_presence_reflects_current_state(self):
+        UserPresence.objects.create(user=self.grace, last_seen_at=timezone.now())
+
+        response = self._get(WEEK_START.isoformat())
+
+        data = self.get_data(response)
+        online_ids = [entry["user"]["id"] for entry in data["presence"]["online"]]
+        self.assertIn(self.grace.id, online_ids)
+
+    def test_week_with_no_data_returns_valid_empty_data(self):
+        response = self._get(WEEK_START.isoformat())
+
+        data = self.get_data(response)
+        self.assertEqual(data["standup_summary"]["total_submitted_standups"], 0)
+        self.assertEqual(data["standup_summary"]["users_who_submitted"], [])
+        self.assertEqual(data["weekly_standups"], [])
+        self.assertEqual(data["aob_items"], [])
+        self.assertEqual(data["pto_entries"], [])
+        self.assertEqual(data["pull_request_links"], [])
+        self.assertEqual(data["presence"]["online"], [])
 
     def test_missing_week_start_is_rejected(self):
         response = self._get()

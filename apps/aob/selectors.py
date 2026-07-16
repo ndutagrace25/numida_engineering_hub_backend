@@ -19,3 +19,11 @@ def list_aob_items():
     return AOBItem.objects.select_related("created_by").order_by(
         "-week_start", "position", "-created_at"
     )
+
+
+def list_aob_items_for_week(week_start):
+    """AOB items for a single week — reuses list_aob_items() for the
+    select_related/ordering and just adds the week_start filter, so
+    callers like the dashboard don't duplicate that query logic.
+    """
+    return list_aob_items().filter(week_start=week_start)

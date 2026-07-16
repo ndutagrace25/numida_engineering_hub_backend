@@ -20,3 +20,11 @@ def list_pull_request_links():
     return PullRequestLink.objects.select_related("created_by").order_by(
         "-week_start", "group_name", "position", "-created_at"
     )
+
+
+def list_pull_request_links_for_week(week_start):
+    """PR links for a single week — reuses list_pull_request_links() for
+    the select_related/ordering and just adds the week_start filter, so
+    callers like the dashboard don't duplicate that query logic.
+    """
+    return list_pull_request_links().filter(week_start=week_start)
