@@ -18,6 +18,6 @@ urlpatterns = [
     path("presence/", include("apps.presence.urls")),
     path("aob-items/", include("apps.aob.urls")),
     path("pto/", include("apps.pto.urls")),
-    path("pull-requests/", include("apps.pull_requests.urls")),
+    path("pull-request-links/", include("apps.pull_requests.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
 ]
