@@ -16,7 +16,7 @@ urlpatterns = [
     path("", include("apps.accounts.urls")),
     path("standups/", include("apps.standups.urls")),
     path("presence/", include("apps.presence.urls")),
-    path("aob/", include("apps.aob.urls")),
+    path("aob-items/", include("apps.aob.urls")),
     path("pto/", include("apps.pto.urls")),
     path("pull-requests/", include("apps.pull_requests.urls")),
     path("dashboard/", include("apps.dashboard.urls")),
