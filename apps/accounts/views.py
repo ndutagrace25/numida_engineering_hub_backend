@@ -57,3 +57,23 @@ class UserListView(generics.ListAPIView):
 
     def get_queryset(self):
         return get_active_users()
+
+
+class UserDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserSerializer
+
+    def get_queryset(self):
+        return get_active_users()
+
+    def retrieve(self, request, *args, **kwargs):
+        # get_object() 404s automatically for a missing pk or a pk outside
+        # get_queryset() (i.e. an inactive user) — both look identical to the
+        # caller, which is correct: existence of inactive accounts shouldn't
+        # be leaked.
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return success_response(
+            data=serializer.data,
+            message="User retrieved successfully.",
+        )
