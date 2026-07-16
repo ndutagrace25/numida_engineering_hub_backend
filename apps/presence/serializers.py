@@ -28,3 +28,19 @@ class UserPresenceSerializer(serializers.ModelSerializer):
 
     def get_status(self, obj):
         return obj.status
+
+
+class UserPresenceEntrySerializer(serializers.Serializer):
+    """One row of the grouped presence list — status itself isn't repeated
+    here since it's already conveyed by which group (online/
+    recently_active/offline) the entry appears under.
+    """
+
+    user = PresenceUserSerializer(read_only=True)
+    last_seen_at = serializers.DateTimeField(read_only=True, allow_null=True)
+
+
+class UserPresenceListSerializer(serializers.Serializer):
+    online = UserPresenceEntrySerializer(many=True, read_only=True)
+    recently_active = UserPresenceEntrySerializer(many=True, read_only=True)
+    offline = UserPresenceEntrySerializer(many=True, read_only=True)
