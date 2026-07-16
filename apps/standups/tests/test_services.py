@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.standups.models import Standup, StandupItem
-from apps.standups.services import create_standup, update_standup
+from apps.standups.services import create_standup, delete_standup, update_standup
 
 
 def _valid_items():
@@ -232,3 +232,42 @@ class UpdateStandupServiceTests(TestCase):
         updated.refresh_from_db()
         self.assertEqual(updated.blockers, "New blocker.")
         self.assertEqual(set(updated.items.values_list("id", flat=True)), original_item_ids)
+
+
+class DeleteStandupServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="jane@example.com", password="pw")
+
+    def _create(self, user=None, **overrides):
+        data = {
+            "standup_date": datetime.date(2026, 7, 13),
+            "blockers": "",
+            "items": _valid_items(),
+        }
+        data.update(overrides)
+        return create_standup(user=user or self.user, validated_data=data)
+
+    def test_standup_is_deleted_successfully(self):
+        standup = self._create()
+        standup_id = standup.id
+
+        delete_standup(standup=standup)
+
+        self.assertFalse(Standup.objects.filter(id=standup_id).exists())
+
+    def test_related_standup_items_are_deleted(self):
+        standup = self._create()
+        item_ids = list(standup.items.values_list("id", flat=True))
+
+        delete_standup(standup=standup)
+
+        self.assertFalse(StandupItem.objects.filter(id__in=item_ids).exists())
+
+    def test_deleting_one_standup_does_not_affect_other_users_standups(self):
+        other = User.objects.create_user(email="other@example.com", password="pw")
+        standup = self._create()
+        other_standup = self._create(user=other)
+
+        delete_standup(standup=standup)
+
+        self.assertTrue(Standup.objects.filter(id=other_standup.id).exists())

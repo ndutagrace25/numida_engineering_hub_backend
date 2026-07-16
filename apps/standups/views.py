@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from apps.standups.models import Standup
 from apps.standups.permissions import IsStandupOwner
 from apps.standups.serializers import StandupSerializer
-from apps.standups.services import create_standup, update_standup
+from apps.standups.services import create_standup, delete_standup, update_standup
 from common.responses import created_response, success_response
 
 DUPLICATE_STANDUP_DATE_ERROR = {
@@ -36,7 +36,7 @@ class StandupCreateView(APIView):
         )
 
 
-class StandupUpdateView(generics.GenericAPIView):
+class StandupUpdateDeleteView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated, IsStandupOwner]
     queryset = Standup.objects.all()
     serializer_class = StandupSerializer
@@ -59,3 +59,10 @@ class StandupUpdateView(generics.GenericAPIView):
             data=StandupSerializer(updated).data,
             message="Standup updated successfully.",
         )
+
+    def delete(self, request, *args, **kwargs):
+        standup = self.get_object()
+
+        delete_standup(standup=standup)
+
+        return success_response(data=None, message="Standup deleted successfully.")

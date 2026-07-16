@@ -52,3 +52,11 @@ def update_standup(*, standup, validated_data):
             )
 
     return standup
+
+
+def delete_standup(*, standup):
+    """Delete `standup`. StandupItems cascade-delete via their FK's
+    on_delete=CASCADE — nothing extra to do for them here.
+    """
+    with transaction.atomic():
+        standup.delete()
