@@ -3,27 +3,27 @@
 Backend for the Numida internal engineering workspace: weekly standups, presence,
 AOB items, PTO records, and outstanding pull-request links.
 
-This repository currently contains only the **project skeleton and development
-tooling**. No authentication, models, serializers, views, or business logic have
-been implemented yet — this is the foundation future features will be built on.
+This repository contains the **project skeleton and reusable engineering
+infrastructure**: response/error formats, pagination, permissions, logging, API
+versioning, and schema docs. No authentication, models, serializers, views, or
+business logic have been implemented yet — every future feature is built on top
+of this foundation.
 
 ## Architecture
 
 ```
-config/                  Django project configuration (settings, root URLs, WSGI/ASGI)
+config/                  Django project configuration
   settings/
     base.py              Settings shared by every environment
-    development.py        Local development overrides
-    test.py              Settings used by the test suite
-    production.py        Production hardening (HTTPS, HSTS, secure cookies)
+    development.py        Local development overrides (readable console logs)
+    test.py              Settings used by the test suite (fast password hasher)
+    production.py        Production hardening (HTTPS, HSTS, JSON logs)
+  urls.py                Root URLconf: /admin/, /health/, /api/v1/, schema/docs
+  api_v1_urls.py           Aggregates each app's urls.py under /api/v1/
+  views.py                 Health check view
 
 apps/                    Domain apps, one per bounded context
-  accounts/
-  standups/
-  presence/
-  aob/
-  pto/
-  pull_requests/
+  accounts/  standups/  presence/  aob/  pto/  pull_requests/
 
   Each app follows the same internal layout:
     models.py            ORM models
@@ -34,25 +34,109 @@ apps/                    Domain apps, one per bounded context
     filters.py             django-filter FilterSets
     validators.py           App-specific validators
     views.py                Thin DRF views
-    urls.py                 App-local URL routes
+    urls.py                 App-local URL routes (included under /api/v1/<app>/)
     admin.py                 Django admin registration
     tests/                    App-specific tests
 
-common/                  Cross-app reusable infrastructure (responses, exceptions,
-                         pagination, permissions, validators, constants). Currently
-                         scaffolded as empty modules, to be implemented as a
-                         follow-up task.
+common/                  Cross-app reusable infrastructure — the platform every
+                         feature app sits on:
+  responses.py            success_response/created_response/deleted_response/
+                          paginated_response — the one success envelope
+  exceptions.py            custom_exception_handler — the one error envelope
+  pagination.py            DefaultPagination (page_size=20, max=100)
+  permissions.py            IsOwnerOrReadOnly, IsCreatorOrReadOnly
+  validators.py             validate_https_url, validate_future_week,
+                           validate_monday, validate_non_empty_string
+  constants.py              API_VERSION, pagination defaults, URL schemes,
+                           date formats, application name/version
+  logging.py                JSONFormatter (used in production)
+  middleware.py              RequestLoggingMiddleware
+  utils/
+    dates.py                today, is_monday, is_in_future
+    strings.py               is_blank, truncate
+    urls.py                  get_scheme, is_https_url
 
-tests/                  Project-level test utilities
-  factories/             Shared factory-boy factories
-  integration/           Cross-app integration tests
+tests/                  Project-level test utilities future feature tests inherit
+  base.py                 BaseAPITestCase
+  auth.py                  authenticate(client, user) helper
+  helpers.py               get_data(response), get_error(response)
+  factories/               Shared factory-boy factories
+  integration/             Cross-app integration tests
 ```
 
 ## Project philosophy
 
 Views stay thin: they authenticate, validate the request, delegate to a
-selector/service, and return a response. Business logic lives in `services.py`
-(writes) and `selectors.py` (reads), never in views.
+selector/service, and return a response via `common/responses.py`. Business
+logic lives in `services.py` (writes) and `selectors.py` (reads), never in
+views.
+
+## Response format
+
+Every successful response shares one envelope, built by `common/responses.py`:
+
+```json
+{
+    "message": "Standup created successfully.",
+    "data": {}
+}
+```
+
+`success_response()` (200), `created_response()` (201), and `deleted_response()`
+(200, with a message body — a 204 cannot carry one) all produce this shape.
+
+## Error format
+
+Every error response — validation errors, auth failures, permission denials,
+404s, 405s, and unhandled server errors — is normalized by
+`common/exceptions.py` into one envelope:
+
+```json
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "...",
+        "fields": {}
+    }
+}
+```
+
+`fields` is only populated for field-level validation errors; other error
+types leave it empty. The handler is registered via `EXCEPTION_HANDLER` in
+`REST_FRAMEWORK` settings.
+
+## Pagination
+
+`common/pagination.py` provides `DefaultPagination`, registered project-wide as
+`DEFAULT_PAGINATION_CLASS`. Default page size is 20, maximum is 100
+(`?page=2&page_size=50`). Paginated responses reuse the same envelope, with
+`data` holding `count`/`next`/`previous`/`results`.
+
+## API versioning
+
+All future endpoints live under `/api/v1/`, aggregated in `config/api_v1_urls.py`
+— one path segment per app (`/api/v1/accounts/`, `/api/v1/standups/`, etc.).
+Adding a v2 later means adding `config/api_v2_urls.py` and including it
+alongside v1, without touching existing routes.
+
+## Logging
+
+`common/middleware.py`'s `RequestLoggingMiddleware` logs method/path/status/
+duration for every request. It never logs headers, cookies, or bodies, so
+passwords, tokens, and session cookies cannot leak through logs. Development
+uses a readable console formatter; production switches to
+`common/logging.py`'s `JSONFormatter` so log aggregators can parse entries
+directly. Unhandled exceptions and 4xx/5xx responses are logged by
+`common/exceptions.py`.
+
+## Schema docs
+
+drf-spectacular is fully configured (title, description, version, contact,
+license). With the server running:
+
+- OpenAPI schema: `GET /api/schema/`
+- Swagger UI: `GET /api/docs/`
+- Redoc: `GET /api/redoc/`
 
 ## Requirements
 
@@ -73,7 +157,16 @@ uv run python manage.py runserver
 The app reads `DJANGO_SETTINGS_MODULE` from the environment (see `.env.example`);
 it defaults to `config.settings.development` if unset.
 
-Health check: `GET /health/` → `{"status": "ok"}`
+Health check: `GET /health/` →
+```json
+{
+    "status": "ok",
+    "application": "Numida Engineering Hub",
+    "version": "1.0.0",
+    "environment": "development",
+    "server_time": "..."
+}
+```
 
 ## Running with Docker
 
@@ -91,7 +184,9 @@ uv run pytest
 ```
 
 Test settings (`config.settings.test`) use a fast password hasher and are
-configured via `pytest.ini`.
+configured via `pytest.ini`. Feature tests should subclass
+`tests.base.BaseAPITestCase` to get consistent authentication and response
+helpers.
 
 ## Linting and formatting
 
@@ -109,26 +204,32 @@ uv run pre-commit run --all-files
 
 ## Current project scope
 
-This repository currently provides only:
+This repository currently provides:
 
 - Django + DRF project skeleton (`config/`)
+- Reusable infrastructure (`common/`): response/error envelopes, pagination,
+  base permissions, validators, constants, logging, request-logging middleware
+- API versioning under `/api/v1/`, with OpenAPI schema/Swagger/Redoc docs
 - Empty domain app scaffolding (`apps/accounts`, `apps/standups`, `apps/presence`,
-  `apps/aob`, `apps/pto`, `apps/pull_requests`)
-- Empty `common/` infrastructure module placeholders
+  `apps/aob`, `apps/pto`, `apps/pull_requests`) — no models or endpoints yet
 - Test utility scaffolding (`tests/`)
 - Development tooling: pytest, coverage, Ruff, pre-commit
 - Docker/Compose setup for the backend and PostgreSQL
-- A single `/health/` endpoint
+- A `/health/` endpoint reporting status, application, version, environment,
+  and server time
 
-No authentication, models, serializers, views, APIs, or business logic exist yet.
-Future work will implement the `common/` infrastructure (consistent response and
-error formats, pagination, permissions, API versioning, logging, schema docs) and
-then build out each domain app on top of it.
+No authentication, users, models, serializers, views, APIs, or business logic
+exist yet.
 
 ## Adding a new feature (future work)
 
 1. Add models to the relevant app's `models.py` and generate migrations.
-2. Add selectors/services for read/write logic.
-3. Add serializers and thin views that delegate to selectors/services.
-4. Wire the app's `urls.py` into `config/urls.py` under the API version prefix.
-5. Add tests under the app's `tests/` package.
+2. Add selectors/services for read/write logic — never in views.
+3. Add serializers and thin views that delegate to selectors/services and
+   return responses via `common/responses.py`.
+4. Use `common/pagination.py`, `common/permissions.py`, and `common/validators.py`
+   instead of writing new ones, unless the app has a genuinely new concern.
+5. Wire the app's existing `urls.py` (already included from
+   `config/api_v1_urls.py`) with real routes.
+6. Add tests under the app's `tests/` package, subclassing
+   `tests.base.BaseAPITestCase`.

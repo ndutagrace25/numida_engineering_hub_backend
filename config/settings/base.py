@@ -10,6 +10,8 @@ from pathlib import Path
 
 import environ
 
+from common.constants import APPLICATION_NAME, APPLICATION_VERSION
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -23,6 +25,9 @@ environ.Env.read_env(BASE_DIR / ".env")
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="django-insecure-change-me-in-env")
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
+
+# Overridden explicitly by each concrete settings module (development/test/production).
+ENVIRONMENT = "development"
 
 
 # Application definition
@@ -55,6 +60,7 @@ LOCAL_APPS = [
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 
 MIDDLEWARE = [
+    "common.middleware.RequestLoggingMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -143,12 +149,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # https://www.django-rest-framework.org/api-guide/settings/
 
 REST_FRAMEWORK = {
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # BasicAuthentication first: it advertises a WWW-Authenticate challenge,
+    # so unauthenticated requests get 401 rather than being coerced to 403
+    # (DRF falls back to 403 if the *first* authenticator can't challenge).
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.BasicAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_PAGINATION_CLASS": "common.pagination.DefaultPagination",
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
-    "PAGE_SIZE": 20,
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",
+    ],
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "EXCEPTION_HANDLER": "common.exceptions.custom_exception_handler",
 }
 
 
@@ -156,9 +175,14 @@ REST_FRAMEWORK = {
 # https://drf-spectacular.readthedocs.io/en/latest/settings.html
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Numida Engineering Hub API",
+    "TITLE": f"{APPLICATION_NAME} API",
     "DESCRIPTION": "API for the Numida internal engineering workspace.",
-    "VERSION": "0.1.0",
+    "VERSION": APPLICATION_VERSION,
+    "CONTACT": {
+        "name": "Numida Engineering",
+        "email": env("API_CONTACT_EMAIL", default="engineering@example.com"),
+    },
+    "LICENSE": {"name": env("API_LICENSE_NAME", default="Proprietary")},
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
@@ -167,3 +191,43 @@ SPECTACULAR_SETTINGS = {
 # https://github.com/adamchainz/django-cors-headers
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+
+
+# Logging
+# https://docs.djangoproject.com/en/5.2/topics/logging/
+#
+# Console formatter is human-readable for local development; production
+# switches the "console" handler to the JSON formatter (see production.py).
+# Only method/path/status/duration are ever logged for requests — never
+# headers, cookies, or bodies — so secrets can't leak through logs.
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {
+            "format": "{asctime} {levelname} {name} {message}",
+            "style": "{",
+        },
+        "json": {
+            "()": "common.logging.JSONFormatter",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
+    },
+    "loggers": {
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+    },
+}
