@@ -1,0 +1,77 @@
+[project]
+name = "numida-engineering-hub-backend"
+version = "0.1.0"
+description = "Backend for the Numida internal engineering workspace (standups, presence, PTO, and related tooling)."
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "django>=5.1,<6",
+    "djangorestframework>=3.15",
+    "psycopg[binary]>=3.2",
+    "django-filter>=24.3",
+    "django-cors-headers>=4.4",
+    "drf-spectacular>=0.27",
+    "django-environ>=0.11",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "factory-boy>=3.3",
+    "coverage[toml]>=7.6",
+    "ruff>=0.15",
+    "pre-commit>=4.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "numida_engineering_hub_backend.settings"
+python_files = ["test_*.py", "*_test.py"]
+testpaths = ["apps"]
+
+[tool.coverage.run]
+source = ["apps", "numida_engineering_hub_backend"]
+omit = [
+    "*/migrations/*",
+    "*/tests/*",
+    "*/test_*.py",
+    "manage.py",
+]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "DJ",  # flake8-django
+    "C4",  # flake8-comprehensions
+]
+ignore = [
+    "DJ001", # allow null=True on CharField/TextField (common in early-stage models)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"*/migrations/*.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "numida_engineering_hub_backend"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
