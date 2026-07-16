@@ -40,6 +40,21 @@ class CurrentUserSerializer(UserSerializer):
     """
 
 
+class MinimalUserSerializer(serializers.ModelSerializer):
+    """The smallest common user representation: id, first_name, last_name,
+    display_name. For contexts where even UserSerializer over-exposes
+    (e.g. presence, or attributing who created something) — no email, no
+    account-status fields.
+    """
+
+    display_name = serializers.ReadOnlyField()
+
+    class Meta:
+        model = User
+        fields = ["id", "first_name", "last_name", "display_name"]
+        read_only_fields = ["id", "first_name", "last_name"]
+
+
 class LoginSerializer(serializers.Serializer):
     """Validates login credentials and authenticates the user. Does not
     touch the session — that is the view's responsibility.
