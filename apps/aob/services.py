@@ -26,3 +26,8 @@ def update_aob_item(*, item, validated_data):
         item.save()
 
     return item
+
+
+def delete_aob_item(*, item):
+    with transaction.atomic():
+        item.delete()

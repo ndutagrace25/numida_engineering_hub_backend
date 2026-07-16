@@ -5,7 +5,7 @@ from django.test import TestCase
 
 from apps.accounts.models import User
 from apps.aob.models import AOBItem
-from apps.aob.services import create_aob_item, update_aob_item
+from apps.aob.services import create_aob_item, delete_aob_item, update_aob_item
 
 MONDAY = datetime.date(2026, 7, 13)
 
@@ -149,3 +149,35 @@ class UpdateAOBItemServiceTests(TestCase):
 
         self.assertIsInstance(updated, AOBItem)
         self.assertEqual(updated.title, "New title")
+
+
+class DeleteAOBItemServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="jane@example.com", password="pw")
+
+    def _create(self, **overrides):
+        data = {
+            "title": "Office move",
+            "description": "",
+            "external_url": "",
+            "week_start": MONDAY,
+            "position": 1,
+        }
+        data.update(overrides)
+        return create_aob_item(user=self.user, validated_data=data)
+
+    def test_item_is_removed_from_the_database(self):
+        item = self._create()
+        item_id = item.id
+
+        delete_aob_item(item=item)
+
+        self.assertFalse(AOBItem.objects.filter(id=item_id).exists())
+
+    def test_deleting_one_item_does_not_affect_other_items(self):
+        item = self._create(title="Item A")
+        other_item = self._create(title="Item B", week_start=MONDAY + datetime.timedelta(days=7))
+
+        delete_aob_item(item=item)
+
+        self.assertTrue(AOBItem.objects.filter(id=other_item.id).exists())
