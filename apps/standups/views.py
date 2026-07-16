@@ -6,6 +6,7 @@ from rest_framework.views import APIView
 
 from apps.standups.models import Standup
 from apps.standups.permissions import IsStandupOwner
+from apps.standups.selectors import get_standup_by_id
 from apps.standups.serializers import StandupSerializer
 from apps.standups.services import create_standup, delete_standup, update_standup
 from common.responses import created_response, success_response
@@ -36,10 +37,26 @@ class StandupCreateView(APIView):
         )
 
 
-class StandupUpdateDeleteView(generics.GenericAPIView):
+class StandupDetailView(generics.GenericAPIView):
+    # IsStandupOwner (IsOwnerOrReadOnly under the hood) allows safe methods
+    # for anyone and only restricts unsafe methods to the owner — exactly
+    # "anyone can view, only the owner can update/delete", with no extra
+    # method-specific branching needed here.
     permission_classes = [IsAuthenticated, IsStandupOwner]
     queryset = Standup.objects.all()
     serializer_class = StandupSerializer
+
+    def get(self, request, *args, **kwargs):
+        # Bypasses get_object()'s plain queryset in favor of the selector's
+        # select_related/prefetch_related-optimized one, but still runs the
+        # same object-level permission check get_object() would have.
+        standup = get_standup_by_id(kwargs["pk"])
+        self.check_object_permissions(request, standup)
+
+        return success_response(
+            data=StandupSerializer(standup).data,
+            message="Standup retrieved successfully.",
+        )
 
     def patch(self, request, *args, **kwargs):
         # get_object() 404s for a nonexistent pk and, via
