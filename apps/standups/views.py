@@ -1,8 +1,11 @@
 from django.db import IntegrityError
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
 from rest_framework.exceptions import ValidationError
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
 
+from apps.standups.filters import StandupFilter
 from apps.standups.models import Standup
 from apps.standups.permissions import IsStandupOwner
 from apps.standups.selectors import (
@@ -23,12 +26,19 @@ DUPLICATE_STANDUP_DATE_ERROR = {
 class StandupListCreateView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = StandupSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = StandupFilter
+    search_fields = ["user__first_name", "user__last_name", "items__content", "blockers"]
 
     def get_queryset(self):
         return list_standups()
 
     def get(self, request, *args, **kwargs):
-        page = self.paginate_queryset(self.get_queryset())
+        # Filtering/searching through items (section, search) joins to a
+        # to-many relation, which can multiply rows — distinct() collapses
+        # those back to one row per matching standup before pagination.
+        queryset = self.filter_queryset(self.get_queryset()).distinct()
+        page = self.paginate_queryset(queryset)
         serializer = self.get_serializer(page, many=True)
         return self.get_paginated_response(serializer.data)
 
