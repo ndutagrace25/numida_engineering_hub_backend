@@ -20,7 +20,7 @@ class AOBItemListViewTests(BaseAPITestCase):
         self.authenticate(self.grace)
 
         self.grace_item = create_aob_item(
-            user=self.grace,
+            created_by=self.grace,
             validated_data={
                 "title": "Office move",
                 "description": "We're moving floors next month.",
@@ -30,7 +30,7 @@ class AOBItemListViewTests(BaseAPITestCase):
             },
         )
         self.amina_item = create_aob_item(
-            user=self.amina,
+            created_by=self.amina,
             validated_data={
                 "title": "New deployment process",
                 "description": "Rolling out a new CI/CD pipeline.",
@@ -158,7 +158,7 @@ class AOBItemListViewTests(BaseAPITestCase):
 
         for i in range(5):
             create_aob_item(
-                user=self.grace,
+                created_by=self.grace,
                 validated_data={
                     "title": f"Extra item {i}",
                     "description": "",

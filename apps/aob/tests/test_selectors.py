@@ -26,7 +26,7 @@ class GetAOBItemByIdSelectorTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="jane@example.com", password="pw")
         self.item = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data={
                 "title": "Office move",
                 "description": "",
@@ -53,23 +53,23 @@ class ListAOBItemsSelectorTests(TestCase):
         self.other = User.objects.create_user(email="other@example.com", password="pw")
 
     def test_returns_items_from_all_users(self):
-        create_aob_item(user=self.user, validated_data=_valid_data(title="A"))
-        create_aob_item(user=self.other, validated_data=_valid_data(title="B"))
+        create_aob_item(created_by=self.user, validated_data=_valid_data(title="A"))
+        create_aob_item(created_by=self.other, validated_data=_valid_data(title="B"))
 
         self.assertEqual(len(list(list_aob_items())), 2)
 
     def test_ordered_by_week_start_desc_position_asc_created_at_desc(self):
         older_week = create_aob_item(
-            user=self.user, validated_data=_valid_data(title="Old", week_start=MONDAY)
+            created_by=self.user, validated_data=_valid_data(title="Old", week_start=MONDAY)
         )
         newer_week_pos_2 = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data=_valid_data(
                 title="New2", week_start=MONDAY + datetime.timedelta(days=7), position=2
             ),
         )
         newer_week_pos_1 = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data=_valid_data(
                 title="New1", week_start=MONDAY + datetime.timedelta(days=7), position=1
             ),
@@ -84,7 +84,7 @@ class ListAOBItemsSelectorTests(TestCase):
 
     def test_avoids_unnecessary_database_queries(self):
         for i in range(3):
-            create_aob_item(user=self.user, validated_data=_valid_data(title=f"Item {i}"))
+            create_aob_item(created_by=self.user, validated_data=_valid_data(title=f"Item {i}"))
 
         with self.assertNumQueries(1):
             items = list(list_aob_items())

@@ -14,7 +14,7 @@ from apps.pull_requests.services import (
     delete_pull_request_link,
     update_pull_request_link,
 )
-from common.responses import created_response, success_response
+from common.responses import created_response, deleted_response, success_response
 from common.schema import (
     AUTHENTICATION_ERROR_RESPONSE,
     not_found_response,
@@ -240,4 +240,4 @@ class PullRequestLinkDetailView(generics.GenericAPIView):
 
         delete_pull_request_link(link=link)
 
-        return success_response(data=None, message="Pull request link deleted successfully.")
+        return deleted_response(message="Pull request link deleted successfully.")

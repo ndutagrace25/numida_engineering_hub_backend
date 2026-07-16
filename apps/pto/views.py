@@ -10,7 +10,7 @@ from apps.pto.permissions import IsPTOEntryCreator
 from apps.pto.selectors import get_pto_entry_by_id, list_pto_entries
 from apps.pto.serializers import PTOEntrySerializer
 from apps.pto.services import create_pto_entry, delete_pto_entry, update_pto_entry
-from common.responses import created_response, success_response
+from common.responses import created_response, deleted_response, success_response
 from common.schema import (
     AUTHENTICATION_ERROR_RESPONSE,
     not_found_response,
@@ -236,4 +236,4 @@ class PTOEntryDetailView(generics.GenericAPIView):
 
         delete_pto_entry(entry=entry)
 
-        return success_response(data=None, message="PTO entry deleted successfully.")
+        return deleted_response(message="PTO entry deleted successfully.")

@@ -13,7 +13,7 @@ class AOBItemDetailViewTests(BaseAPITestCase):
             email="jane@example.com", password="pw", first_name="Jane", last_name="Doe"
         )
         self.item = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data={
                 "title": "Office move",
                 "description": "",

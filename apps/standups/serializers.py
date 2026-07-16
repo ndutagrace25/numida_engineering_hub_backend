@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.accounts.serializers import UserSerializer
 from apps.standups.models import Standup, StandupItem
-from common.validators import validate_monday, validate_non_empty_string
+from common.validators import validate_monday
 
 REQUIRED_SECTIONS = (
     StandupItem.Section.COMPLETED,
@@ -17,14 +17,12 @@ class StandupItemSerializer(serializers.ModelSerializer):
         fields = ["id", "section", "content", "position", "created_at", "updated_at"]
         read_only_fields = ["id", "created_at", "updated_at"]
 
-    def validate_content(self, value):
-        validate_non_empty_string(value)
-        return value
-
 
 class StandupSerializer(serializers.ModelSerializer):
-    """Validation-only for now — create()/update() for the nested items list
-    are intentionally not implemented yet.
+    """Validation and representation only — creating/updating a Standup and
+    its nested items is deliberately handled by apps.standups.services
+    (create_standup()/update_standup()), not by overriding create()/
+    update() here, to keep write logic in the service layer.
     """
 
     user = UserSerializer(read_only=True)

@@ -84,7 +84,7 @@ class DashboardViewTests(BaseAPITestCase):
 
     def test_aob_items_within_week_are_included(self):
         create_aob_item(
-            user=self.grace,
+            created_by=self.grace,
             validated_data={
                 "title": "Office closed Friday",
                 "description": "",
@@ -199,7 +199,7 @@ class DashboardViewTests(BaseAPITestCase):
     def test_query_count_does_not_grow_with_more_data(self):
         self._create_standup(self.grace, WEEK_START)
         create_aob_item(
-            user=self.grace,
+            created_by=self.grace,
             validated_data={
                 "title": "Item",
                 "description": "",
@@ -240,7 +240,7 @@ class DashboardViewTests(BaseAPITestCase):
         for offset, user in enumerate(extra_users):
             self._create_standup(user, WEEK_START + datetime.timedelta(days=offset % 7))
             create_aob_item(
-                user=user,
+                created_by=user,
                 validated_data={
                     "title": f"Item {offset}",
                     "description": "",

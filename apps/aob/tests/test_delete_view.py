@@ -12,7 +12,7 @@ class AOBItemDeleteViewTests(BaseAPITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="jane@example.com", password="pw")
         self.item = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data={
                 "title": "Office move",
                 "description": "",
@@ -45,7 +45,7 @@ class AOBItemDeleteViewTests(BaseAPITestCase):
 
     def test_deleting_one_item_does_not_affect_other_aob_items(self):
         other_item = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data={
                 "title": "Other item",
                 "description": "",

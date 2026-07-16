@@ -6,8 +6,8 @@ from apps.accounts.models import User
 
 class UserSerializer(serializers.ModelSerializer):
     """Output-only representation of a user. Every field is read-only —
-    this serializer does not support creating users or updating passwords;
-    that will be added by dedicated serializers later.
+    this API has no self-registration or password-change endpoint; user
+    accounts are provisioned through the Django admin.
     """
 
     display_name = serializers.ReadOnlyField()
@@ -34,9 +34,9 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class CurrentUserSerializer(UserSerializer):
-    """Used by the future `/auth/me/` endpoint. Identical to UserSerializer
-    today; kept as its own class so that endpoint can diverge later without
-    changing the general-purpose UserSerializer.
+    """Used by GET /api/v1/auth/me/ and the login response. Identical to
+    UserSerializer today; kept as its own class so that endpoint can
+    diverge later without changing the general-purpose UserSerializer.
     """
 
 

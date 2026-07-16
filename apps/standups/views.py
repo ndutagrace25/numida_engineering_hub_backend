@@ -22,7 +22,7 @@ from apps.standups.selectors import (
 )
 from apps.standups.serializers import StandupSerializer, WeeklyStandupsQuerySerializer
 from apps.standups.services import create_standup, delete_standup, update_standup
-from common.responses import created_response, success_response
+from common.responses import created_response, deleted_response, success_response
 from common.schema import (
     AUTHENTICATION_ERROR_RESPONSE,
     not_found_response,
@@ -369,4 +369,4 @@ class StandupDetailView(generics.GenericAPIView):
 
         delete_standup(standup=standup)
 
-        return success_response(data=None, message="Standup deleted successfully.")
+        return deleted_response(message="Standup deleted successfully.")

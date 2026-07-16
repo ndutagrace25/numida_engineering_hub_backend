@@ -11,7 +11,7 @@ class AOBItemUpdateViewTests(BaseAPITestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="jane@example.com", password="pw")
         self.item = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data={
                 "title": "Office move",
                 "description": "Original description.",

@@ -121,7 +121,7 @@ class GetWeeklyDashboardDataTests(TestCase):
 
     def test_includes_aob_items_only_from_the_selected_week(self):
         within = create_aob_item(
-            user=self.grace,
+            created_by=self.grace,
             validated_data={
                 "title": "Office closed Friday",
                 "description": "",
@@ -131,7 +131,7 @@ class GetWeeklyDashboardDataTests(TestCase):
             },
         )
         create_aob_item(
-            user=self.grace,
+            created_by=self.grace,
             validated_data={
                 "title": "Other week item",
                 "description": "",
@@ -236,7 +236,7 @@ class GetWeeklyDashboardDataTests(TestCase):
 
         self._create_standup(self.grace, WEEK_START)
         create_aob_item(
-            user=self.grace,
+            created_by=self.grace,
             validated_data={
                 "title": "Item",
                 "description": "",
@@ -277,7 +277,7 @@ class GetWeeklyDashboardDataTests(TestCase):
         for offset, user in enumerate(extra_users):
             self._create_standup(user, WEEK_START + datetime.timedelta(days=offset % 7))
             create_aob_item(
-                user=user,
+                created_by=user,
                 validated_data={
                     "title": f"Item {offset}",
                     "description": "",

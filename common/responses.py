@@ -27,7 +27,9 @@ def created_response(data=_UNSET, message="Resource created successfully."):
 
 
 def deleted_response(message="Resource deleted successfully."):
-    return success_response(data={}, message=message, status_code=status.HTTP_200_OK)
+    # data=None (not {}): every delete endpoint responds with 200 and a
+    # null data payload, not 204, since 204 can't carry the message body.
+    return success_response(data=None, message=message, status_code=status.HTTP_200_OK)
 
 
 def paginated_response(

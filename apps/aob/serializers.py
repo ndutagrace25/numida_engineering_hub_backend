@@ -2,7 +2,7 @@ from rest_framework import serializers
 
 from apps.accounts.serializers import MinimalUserSerializer
 from apps.aob.models import AOBItem
-from common.validators import validate_https_url, validate_monday, validate_non_empty_string
+from common.validators import validate_https_url, validate_monday
 
 
 class AOBItemSerializer(serializers.ModelSerializer):
@@ -26,10 +26,6 @@ class AOBItemSerializer(serializers.ModelSerializer):
             "week_start": {"help_text": "The Monday that starts the week this item belongs to."},
             "external_url": {"help_text": "Optional HTTPS link with more detail."},
         }
-
-    def validate_title(self, value):
-        validate_non_empty_string(value)
-        return value
 
     def validate_external_url(self, value):
         if value:

@@ -1,9 +1,9 @@
 """
 API v1 route aggregator.
 
-Every future app is included here under its own path segment. Individual apps
-have no routes registered yet — this only establishes the namespace they will
-live under.
+Every app is included here under its own path segment. A v2 later means
+adding config/api_v2_urls.py and including it alongside this one, without
+touching these routes.
 """
 
 from django.urls import include, path

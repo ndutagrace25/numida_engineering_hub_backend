@@ -112,19 +112,3 @@ def null_data_envelope(name):
     i.e. {"message": "...", "data": null}.
     """
     return success_envelope(name, serializers.JSONField(allow_null=True, default=None))
-
-
-def paginated_envelope(name, results):
-    """The envelope shape returned by common.pagination.DefaultPagination:
-    {"message", "data": {"count", "next", "previous", "results": [...]}}.
-    """
-    page_data = inline_serializer(
-        name=f"{name}Data",
-        fields={
-            "count": serializers.IntegerField(),
-            "next": serializers.URLField(allow_null=True),
-            "previous": serializers.URLField(allow_null=True),
-            "results": results,
-        },
-    )
-    return success_envelope(name, page_data)

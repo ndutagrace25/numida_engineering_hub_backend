@@ -10,7 +10,7 @@ from apps.aob.permissions import IsAOBItemCreator
 from apps.aob.selectors import get_aob_item_by_id, list_aob_items
 from apps.aob.serializers import AOBItemSerializer
 from apps.aob.services import create_aob_item, delete_aob_item, update_aob_item
-from common.responses import created_response, success_response
+from common.responses import created_response, deleted_response, success_response
 from common.schema import (
     AUTHENTICATION_ERROR_RESPONSE,
     not_found_response,
@@ -123,7 +123,7 @@ class AOBItemListCreateView(generics.GenericAPIView):
         serializer = AOBItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        item = create_aob_item(user=request.user, validated_data=serializer.validated_data)
+        item = create_aob_item(created_by=request.user, validated_data=serializer.validated_data)
 
         return created_response(
             data=AOBItemSerializer(item).data,
@@ -223,4 +223,4 @@ class AOBItemDetailView(generics.GenericAPIView):
 
         delete_aob_item(item=item)
 
-        return success_response(data=None, message="AOB item deleted successfully.")
+        return deleted_response(message="AOB item deleted successfully.")

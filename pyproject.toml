@@ -1,6 +1,6 @@
 [project]
 name = "numida-engineering-hub-backend"
-version = "0.1.0"
+version = "1.0.0"
 description = "Backend for the Numida internal engineering workspace (standups, presence, PTO, and related tooling)."
 requires-python = ">=3.12,<3.13"
 dependencies = [
@@ -30,6 +30,14 @@ omit = [
     "*/tests/*",
     "*/test_*.py",
     "manage.py",
+    # Deployment entrypoints and environment-specific settings modules —
+    # boilerplate wiring exercised by actually running the app in that
+    # environment, not by the test suite (which always runs under
+    # config.settings.test).
+    "config/asgi.py",
+    "config/wsgi.py",
+    "config/settings/development.py",
+    "config/settings/production.py",
 ]
 branch = true
 
@@ -41,6 +49,10 @@ exclude_lines = [
     "raise NotImplementedError",
     "if TYPE_CHECKING:",
 ]
+# A floor, not a target — guards against coverage silently regressing.
+# Set a few points below the actual measured total so incidental,
+# non-behavioral changes don't fail CI on their own.
+fail_under = 90
 
 [tool.ruff]
 target-version = "py312"

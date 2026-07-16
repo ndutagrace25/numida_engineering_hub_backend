@@ -6,7 +6,10 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 
 class IsOwnerOrReadOnly(BasePermission):
-    """Allows safe methods to anyone; write methods only to the object's owner."""
+    """Allows safe methods to anyone; write methods only to the object's
+    owner — set owner_field to the model's FK ("user", "created_by", etc.)
+    when subclassing for a specific app.
+    """
 
     owner_field = "owner"
 
@@ -14,14 +17,3 @@ class IsOwnerOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return getattr(obj, self.owner_field, None) == request.user
-
-
-class IsCreatorOrReadOnly(BasePermission):
-    """Allows safe methods to anyone; write methods only to the object's creator."""
-
-    creator_field = "created_by"
-
-    def has_object_permission(self, request, view, obj):
-        if request.method in SAFE_METHODS:
-            return True
-        return getattr(obj, self.creator_field, None) == request.user

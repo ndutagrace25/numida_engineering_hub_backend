@@ -26,18 +26,20 @@ class CreateAOBItemServiceTests(TestCase):
         return data
 
     def test_valid_aob_item_is_created_successfully(self):
-        item = create_aob_item(user=self.user, validated_data=self._validated_data())
+        item = create_aob_item(created_by=self.user, validated_data=self._validated_data())
 
         self.assertEqual(AOBItem.objects.count(), 1)
         self.assertEqual(item.title, "Office move")
 
     def test_authenticated_user_is_assigned_as_created_by(self):
-        item = create_aob_item(user=self.user, validated_data=self._validated_data())
+        item = create_aob_item(created_by=self.user, validated_data=self._validated_data())
 
         self.assertEqual(item.created_by, self.user)
 
     def test_optional_description_can_be_blank(self):
-        item = create_aob_item(user=self.user, validated_data=self._validated_data(description=""))
+        item = create_aob_item(
+            created_by=self.user, validated_data=self._validated_data(description="")
+        )
 
         self.assertEqual(item.description, "")
 
@@ -45,20 +47,20 @@ class CreateAOBItemServiceTests(TestCase):
         data = self._validated_data()
         del data["external_url"]
 
-        item = create_aob_item(user=self.user, validated_data=data)
+        item = create_aob_item(created_by=self.user, validated_data=data)
 
         self.assertEqual(item.external_url, "")
 
     def test_week_start_and_position_are_saved_correctly(self):
         item = create_aob_item(
-            user=self.user, validated_data=self._validated_data(week_start=MONDAY, position=3)
+            created_by=self.user, validated_data=self._validated_data(week_start=MONDAY, position=3)
         )
 
         self.assertEqual(item.week_start, MONDAY)
         self.assertEqual(item.position, 3)
 
     def test_service_returns_the_created_aob_item_instance(self):
-        item = create_aob_item(user=self.user, validated_data=self._validated_data())
+        item = create_aob_item(created_by=self.user, validated_data=self._validated_data())
 
         self.assertIsInstance(item, AOBItem)
         self.assertIsNotNone(item.pk)
@@ -69,7 +71,7 @@ class CreateAOBItemServiceTests(TestCase):
         data = self._validated_data()
         data["created_by"] = other  # should never be honored, even if present
 
-        item = create_aob_item(user=self.user, validated_data=data)
+        item = create_aob_item(created_by=self.user, validated_data=data)
 
         self.assertEqual(item.created_by, self.user)
 
@@ -78,7 +80,7 @@ class UpdateAOBItemServiceTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(email="jane@example.com", password="pw")
         self.item = create_aob_item(
-            user=self.user,
+            created_by=self.user,
             validated_data={
                 "title": "Office move",
                 "description": "Original description.",
@@ -164,7 +166,7 @@ class DeleteAOBItemServiceTests(TestCase):
             "position": 1,
         }
         data.update(overrides)
-        return create_aob_item(user=self.user, validated_data=data)
+        return create_aob_item(created_by=self.user, validated_data=data)
 
     def test_item_is_removed_from_the_database(self):
         item = self._create()
