@@ -8,16 +8,21 @@ Feature-specific response shaping does not belong here — only the envelope.
 from rest_framework import status
 from rest_framework.response import Response
 
+# Distinguishes "caller passed no data" (-> {}) from "caller explicitly wants
+# null data" (data=None -> JSON null); both would otherwise look identical
+# with a plain default of None.
+_UNSET = object()
+
 
 def success_response(
-    data=None, message="Request completed successfully.", status_code=status.HTTP_200_OK
+    data=_UNSET, message="Request completed successfully.", status_code=status.HTTP_200_OK
 ):
-    return Response(
-        {"message": message, "data": data if data is not None else {}}, status=status_code
-    )
+    if data is _UNSET:
+        data = {}
+    return Response({"message": message, "data": data}, status=status_code)
 
 
-def created_response(data=None, message="Resource created successfully."):
+def created_response(data=_UNSET, message="Resource created successfully."):
     return success_response(data=data, message=message, status_code=status.HTTP_201_CREATED)
 
 

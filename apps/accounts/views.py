@@ -1,5 +1,5 @@
-from django.contrib.auth import login
-from rest_framework.permissions import AllowAny
+from django.contrib.auth import login, logout
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.views import APIView
 
 from apps.accounts.serializers import CurrentUserSerializer, LoginSerializer
@@ -23,3 +23,14 @@ class LoginView(APIView):
             data=CurrentUserSerializer(user).data,
             message="Login successful.",
         )
+
+
+class LogoutView(APIView):
+    # Explicit even though it matches the global default: logging out
+    # requires being logged in, so an unauthenticated caller gets a clean
+    # 401 rather than a no-op 200.
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        logout(request)
+        return success_response(data=None, message="Logout successful.")

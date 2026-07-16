@@ -83,3 +83,65 @@ class LoginViewTests(BaseAPITestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(int(self.client.session[SESSION_KEY]), other.pk)
+
+
+class LogoutViewTests(BaseAPITestCase):
+    login_url = "/api/v1/auth/login/"
+    logout_url = "/api/v1/auth/logout/"
+
+    def setUp(self):
+        self.password = "s3cret-pw"
+        self.user = User.objects.create_user(email="jane@example.com", password=self.password)
+
+    def _login(self):
+        return self.client.post(
+            self.login_url, {"email": self.user.email, "password": self.password}
+        )
+
+    def test_authenticated_user_can_log_out(self):
+        self._login()
+
+        response = self.client.post(self.logout_url)
+
+        self.assertEqual(response.status_code, 200)
+
+    def test_logout_returns_standard_success_response_with_null_data(self):
+        self._login()
+
+        response = self.client.post(self.logout_url)
+
+        body = response.json()
+        self.assertEqual(body["message"], "Logout successful.")
+        self.assertIsNone(body["data"])
+
+    def test_logout_exposes_no_user_or_session_data(self):
+        self._login()
+
+        response = self.client.post(self.logout_url)
+
+        self.assertEqual(set(response.json().keys()), {"message", "data"})
+
+    def test_session_is_cleared_after_logout(self):
+        self._login()
+        self.assertIn(SESSION_KEY, self.client.session)
+
+        self.client.post(self.logout_url)
+
+        self.assertNotIn(SESSION_KEY, self.client.session)
+
+    def test_old_session_cannot_access_authenticated_endpoints_after_logout(self):
+        self._login()
+        self.client.post(self.logout_url)
+
+        # Same client, now logged out: a second call to an authenticated
+        # endpoint (logout itself) must be rejected, not silently succeed.
+        response = self.client.post(self.logout_url)
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_unauthenticated_logout_returns_standard_auth_error(self):
+        response = self.client.post(self.logout_url)
+
+        self.assertEqual(response.status_code, 401)
+        error = self.get_error(response)
+        self.assertEqual(error["code"], "NOT_AUTHENTICATED")
