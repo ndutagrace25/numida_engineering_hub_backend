@@ -4,6 +4,7 @@ from rest_framework.views import APIView
 
 from apps.aob.models import AOBItem
 from apps.aob.permissions import IsAOBItemCreator
+from apps.aob.selectors import get_aob_item_by_id
 from apps.aob.serializers import AOBItemSerializer
 from apps.aob.services import create_aob_item, delete_aob_item, update_aob_item
 from common.responses import created_response, success_response
@@ -24,13 +25,26 @@ class AOBItemCreateView(APIView):
         )
 
 
-class AOBItemUpdateDeleteView(generics.GenericAPIView):
+class AOBItemDetailView(generics.GenericAPIView):
     # IsAOBItemCreator (IsOwnerOrReadOnly with owner_field="created_by")
     # allows safe methods for anyone and restricts unsafe methods to the
     # creator — matching the same reuse already established for standups.
     permission_classes = [IsAuthenticated, IsAOBItemCreator]
     queryset = AOBItem.objects.all()
     serializer_class = AOBItemSerializer
+
+    def get(self, request, *args, **kwargs):
+        # Bypasses get_object()'s plain queryset in favor of the selector's
+        # select_related-optimized one, but still runs the same
+        # object-level permission check get_object() would have (a no-op
+        # here, since GET is a safe method IsOwnerOrReadOnly allows anyone).
+        item = get_aob_item_by_id(kwargs["pk"])
+        self.check_object_permissions(request, item)
+
+        return success_response(
+            data=AOBItemSerializer(item).data,
+            message="AOB item retrieved successfully.",
+        )
 
     def patch(self, request, *args, **kwargs):
         # get_object() 404s for a nonexistent pk and, via
