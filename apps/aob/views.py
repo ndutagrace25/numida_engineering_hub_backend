@@ -1,19 +1,38 @@
+from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics
+from rest_framework.filters import SearchFilter
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.views import APIView
 
+from apps.aob.filters import AOBItemFilter
 from apps.aob.models import AOBItem
 from apps.aob.permissions import IsAOBItemCreator
-from apps.aob.selectors import get_aob_item_by_id
+from apps.aob.selectors import get_aob_item_by_id, list_aob_items
 from apps.aob.serializers import AOBItemSerializer
 from apps.aob.services import create_aob_item, delete_aob_item, update_aob_item
 from common.responses import created_response, success_response
 
 
-class AOBItemCreateView(APIView):
+class AOBItemListCreateView(generics.GenericAPIView):
     permission_classes = [IsAuthenticated]
+    serializer_class = AOBItemSerializer
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_class = AOBItemFilter
+    search_fields = ["title", "description", "created_by__first_name", "created_by__last_name"]
 
-    def post(self, request):
+    def get_queryset(self):
+        return list_aob_items()
+
+    def get(self, request, *args, **kwargs):
+        # created_by is a forward, to-one FK (unlike standups' items),
+        # so none of these filters/search fields can actually multiply
+        # rows — distinct() is kept anyway for consistency and in case a
+        # to-many field is ever added to search_fields later.
+        queryset = self.filter_queryset(self.get_queryset()).distinct()
+        page = self.paginate_queryset(queryset)
+        serializer = self.get_serializer(page, many=True)
+        return self.get_paginated_response(serializer.data)
+
+    def post(self, request, *args, **kwargs):
         serializer = AOBItemSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
