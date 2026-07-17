@@ -219,6 +219,18 @@ SPECTACULAR_SETTINGS = {
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
+# The frontend authenticates with session cookies sent cross-origin
+# (different port = different origin), so both credentialed CORS and CSRF
+# need the frontend's origin explicitly trusted:
+# - Without CORS_ALLOW_CREDENTIALS, browsers reject any fetch/XHR made with
+#   `withCredentials: true` regardless of what CORS_ALLOWED_ORIGINS says.
+# - Without CSRF_TRUSTED_ORIGINS, Django's CSRF Origin check rejects
+#   state-changing requests (e.g. logout) from an authenticated session,
+#   since the request's Origin header won't match the backend's own host.
+CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=[])
+
 
 # Logging
 # https://docs.djangoproject.com/en/5.2/topics/logging/
