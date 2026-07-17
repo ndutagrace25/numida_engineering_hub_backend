@@ -152,11 +152,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # https://www.django-rest-framework.org/api-guide/settings/
 
 REST_FRAMEWORK = {
-    # BasicAuthentication first: it advertises a WWW-Authenticate challenge,
-    # so unauthenticated requests get 401 rather than being coerced to 403
-    # (DRF falls back to 403 if the *first* authenticator can't challenge).
+    # NonPromptingBasicAuthentication first: it advertises a WWW-Authenticate
+    # challenge, so unauthenticated requests get 401 rather than being
+    # coerced to 403 (DRF falls back to 403 if the *first* authenticator
+    # can't challenge) — same reasoning as plain BasicAuthentication, but
+    # its header value doesn't trigger a browser's native login popup on
+    # the frontend's own XHR/fetch calls (see common/authentication.py).
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.BasicAuthentication",
+        "common.authentication.NonPromptingBasicAuthentication",
         "rest_framework.authentication.SessionAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
