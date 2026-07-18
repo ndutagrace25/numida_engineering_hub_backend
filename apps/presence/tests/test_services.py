@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.presence.models import UserPresence
-from apps.presence.services import update_user_presence
+from apps.presence.services import clear_user_presence, update_user_presence
 
 
 class UpdateUserPresenceServiceTests(TestCase):
@@ -54,3 +54,33 @@ class UpdateUserPresenceServiceTests(TestCase):
 
         self.assertIsInstance(presence, UserPresence)
         self.assertEqual(presence.user, self.user)
+
+
+class ClearUserPresenceServiceTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(email="jane@example.com", password="pw")
+
+    def test_deletes_the_user_s_presence_record(self):
+        update_user_presence(user=self.user)
+        self.assertTrue(UserPresence.objects.filter(user=self.user).exists())
+
+        clear_user_presence(user=self.user)
+
+        self.assertFalse(UserPresence.objects.filter(user=self.user).exists())
+
+    def test_does_not_error_when_the_user_has_no_presence_record(self):
+        self.assertFalse(UserPresence.objects.filter(user=self.user).exists())
+
+        clear_user_presence(user=self.user)  # should not raise
+
+        self.assertFalse(UserPresence.objects.filter(user=self.user).exists())
+
+    def test_only_clears_the_given_user_s_record(self):
+        other = User.objects.create_user(email="other@example.com", password="pw")
+        update_user_presence(user=self.user)
+        update_user_presence(user=other)
+
+        clear_user_presence(user=self.user)
+
+        self.assertFalse(UserPresence.objects.filter(user=self.user).exists())
+        self.assertTrue(UserPresence.objects.filter(user=other).exists())

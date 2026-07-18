@@ -1,6 +1,8 @@
 from django.contrib.auth import SESSION_KEY
+from django.utils import timezone
 
 from apps.accounts.models import User
+from apps.presence.models import UserPresence
 from tests.base import BaseAPITestCase
 
 
@@ -145,6 +147,22 @@ class LogoutViewTests(BaseAPITestCase):
         self.assertEqual(response.status_code, 401)
         error = self.get_error(response)
         self.assertEqual(error["code"], "NOT_AUTHENTICATED")
+
+    def test_logout_clears_the_user_s_presence_record(self):
+        self._login()
+        UserPresence.objects.create(user=self.user, last_seen_at=timezone.now())
+
+        self.client.post(self.logout_url)
+
+        self.assertFalse(UserPresence.objects.filter(user=self.user).exists())
+
+    def test_logout_does_not_error_when_user_has_no_presence_record(self):
+        self._login()
+        self.assertFalse(UserPresence.objects.filter(user=self.user).exists())
+
+        response = self.client.post(self.logout_url)
+
+        self.assertEqual(response.status_code, 200)
 
 
 class CurrentUserViewTests(BaseAPITestCase):

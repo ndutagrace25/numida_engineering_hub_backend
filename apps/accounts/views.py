@@ -7,6 +7,7 @@ from rest_framework.views import APIView
 
 from apps.accounts.selectors import get_active_users
 from apps.accounts.serializers import CurrentUserSerializer, LoginSerializer, UserSerializer
+from apps.presence.services import clear_user_presence
 from common.responses import success_response
 from common.schema import (
     AUTHENTICATION_ERROR_RESPONSE,
@@ -107,6 +108,13 @@ class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
+        # Presence has no "offline" state of its own — it's derived purely
+        # from how long ago the user's last heartbeat was — so without
+        # this, a just-logged-out user would keep showing as online for
+        # up to the full ONLINE_THRESHOLD. Cleared before logout(), while
+        # request.user is still the real user (logout() reassigns it to
+        # AnonymousUser).
+        clear_user_presence(user=request.user)
         logout(request)
         return success_response(data=None, message="Logout successful.")
 
